@@ -1,0 +1,6 @@
+{
+  "name": "Myaipro",
+  "description": "All-in-one AI platform with code builder, chat, presentations, voice assistant, and project workspace.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
