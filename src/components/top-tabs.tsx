@@ -63,29 +63,6 @@ export function TopTabs() {
           </Link>
         ))}
       </div>
-
-      <div className="flex shrink-0 items-center gap-1.5 pl-2">
-        {isPro ? (
-          <Link
-            to="/billing"
-            className="flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/25 px-2.5 py-1 text-[11px] font-bold text-amber-600 hover:bg-amber-500/20 transition"
-            title="Active Pro Subscription"
-          >
-            <Crown className="size-3" />
-            <span>Pro Active</span>
-          </Link>
-        ) : (
-          <button
-            type="button"
-            onClick={triggerUpgradeModal}
-            className="flex items-center gap-1.5 rounded-full bg-brand/10 border border-brand/30 px-3 py-1 text-[11px] font-bold text-brand hover:bg-brand/20 transition cursor-pointer shadow-2xs"
-            title="Click to upgrade for pro"
-          >
-            <Zap className="size-3" />
-            <span>{credits > 0 ? `${credits} Credits Left` : "0 Credits"} • Upgrade for Pro</span>
-          </button>
-        )}
-      </div>
     </nav>
   );
 }

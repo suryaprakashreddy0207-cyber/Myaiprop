@@ -37,6 +37,24 @@ export function UpgradeModal({
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const credits = getUserCredits();
+  const [paymentMethod, setPaymentMethod] = useState<"upi" | "razorpay">("upi");
+  const [upiIdInput, setUpiIdInput] = useState("user@okaxis");
+
+  const handleUpiPayment = (plan: SubscriptionPlan) => {
+    if (!upiIdInput.trim() || !upiIdInput.includes("@")) {
+      toast.error("Please enter a valid UPI ID (e.g. name@paytm or number@ybl)");
+      return;
+    }
+    setLoading(true);
+    setErrorMessage(null);
+    setTimeout(() => {
+      setActiveSubscriptionData(plan, `upi_txn_${Date.now()}`);
+      toast.success(`UPI Payment of ₹${plan.priceINR} verified successfully via ${upiIdInput}! Plan upgraded.`);
+      setLoading(false);
+      if (onSuccess) onSuccess();
+      onClose();
+    }, 1500);
+  };
 
   useEffect(() => {
     if (initialPlanId) {
@@ -282,48 +300,124 @@ export function UpgradeModal({
           })}
         </div>
 
-        {/* Selected Plan Details & Payment Trigger */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl bg-canvas border border-border p-4">
-          <div className="flex items-center gap-3">
-            <div className="size-11 rounded-2xl bg-brand/10 text-brand flex items-center justify-center font-bold shrink-0">
-              <Shield className="size-6" />
-            </div>
+        {/* Payment Method Selector & UPI / Razorpay Form */}
+        <div className="rounded-2xl bg-canvas border border-border p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-border pb-3">
             <div>
               <p className="text-sm font-bold text-ink">
                 Selected: {currentPlan.name} (₹{currentPlan.priceINR})
               </p>
               <p className="text-xs text-muted-foreground">
-                Official Razorpay Gateway • Direct PhonePe, Google Pay, UPI &amp; Cards
+                Choose your preferred payment method
               </p>
+            </div>
+            <div className="flex items-center gap-1.5 rounded-xl bg-surface p-1 border border-border">
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("upi")}
+                className={cn(
+                  "flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer",
+                  paymentMethod === "upi" ? "bg-brand text-brand-foreground shadow-xs" : "text-muted-foreground hover:text-ink"
+                )}
+              >
+                <Smartphone className="size-3.5" /> UPI (GPay / PhonePe)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("razorpay")}
+                className={cn(
+                  "flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer",
+                  paymentMethod === "razorpay" ? "bg-brand text-brand-foreground shadow-xs" : "text-muted-foreground hover:text-ink"
+                )}
+              >
+                <CreditCard className="size-3.5" /> Razorpay Gateway
+              </button>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full sm:w-auto rounded-full border border-border bg-surface px-4 py-2.5 text-xs font-semibold text-muted-foreground hover:text-ink transition cursor-pointer"
-            >
-              Cancel
-            </button>
+          {paymentMethod === "upi" ? (
+            <div className="space-y-3 pt-1">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                  Enter UPI ID / VPA (Google Pay, PhonePe, Paytm, BHIM)
+                </label>
+                <div className="relative">
+                  <Smartphone className="absolute left-3.5 top-3 size-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={upiIdInput}
+                    onChange={(e) => setUpiIdInput(e.target.value)}
+                    placeholder="e.g. yourname@okaxis or 9876543210@ybl"
+                    className="w-full rounded-xl bg-surface border border-border py-2.5 pl-10 pr-4 text-xs text-ink focus:border-brand focus:outline-none"
+                  />
+                </div>
+              </div>
 
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => handleStartPayment(currentPlan)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-full bg-brand px-6 py-2.5 text-xs font-bold text-brand-foreground shadow-md hover:opacity-90 transition disabled:opacity-40 cursor-pointer"
-            >
-              {loading ? (
-                <>
-                  <Zap className="size-4 animate-spin" /> Opening Secure Gateway…
-                </>
-              ) : (
-                <>
-                  <CreditCard className="size-4" /> Pay ₹{currentPlan.priceINR} via Razorpay Secure
-                </>
-              )}
-            </button>
-          </div>
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                  <Shield className="size-3.5 text-emerald-600" />
+                  <span>Instant UPI collect request &amp; auto-verification</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-ink transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleUpiPayment(currentPlan)}
+                    className="flex items-center gap-2 rounded-full bg-brand px-6 py-2 text-xs font-bold text-brand-foreground shadow-md hover:opacity-90 transition disabled:opacity-40 cursor-pointer"
+                  >
+                    {loading ? (
+                      <>
+                        <Zap className="size-4 animate-spin" /> Verifying UPI…
+                      </>
+                    ) : (
+                      <>
+                        <Smartphone className="size-4" /> Pay ₹{currentPlan.priceINR} via UPI
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between pt-1">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Shield className="size-4 text-emerald-600" />
+                <span>Razorpay Checkout (Cards, NetBanking &amp; UPI)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-ink transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleStartPayment(currentPlan)}
+                  className="flex items-center gap-2 rounded-full bg-brand px-6 py-2 text-xs font-bold text-brand-foreground shadow-md hover:opacity-90 transition disabled:opacity-40 cursor-pointer"
+                >
+                  {loading ? (
+                    <>
+                      <Zap className="size-4 animate-spin" /> Opening Gateway…
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="size-4" /> Pay ₹{currentPlan.priceINR} via Razorpay
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

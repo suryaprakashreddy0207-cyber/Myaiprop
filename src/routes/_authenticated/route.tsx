@@ -110,57 +110,10 @@ function ProtectedContent() {
 
   return (
     <div className="flex flex-col min-h-screen w-full bg-canvas text-ink">
-      {/* Top Free User Status Banner */}
-      {!isPro && !dismissedBanner && (
-        <div className="shrink-0 flex items-center justify-between px-3 py-1.5 bg-gradient-to-r from-brand/10 via-amber-500/10 to-orange-500/10 border-b border-brand/20 text-xs">
-          <div className="flex items-center gap-2">
-            <Crown className="size-3.5 text-brand shrink-0" />
-            <span>
-              {credits > 0 ? (
-                <>
-                  <span className="font-bold text-ink">Free Tier</span> (₹0):{" "}
-                  <span className="font-bold text-brand">{credits} free credits</span> left for Myaipro.
-                </>
-              ) : (
-                <>
-                  <span className="font-bold text-red-600">Free Credits Exhausted</span>: Please upgrade for pro to continue unthrottled generation.
-                </>
-              )}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowUpgradeModal(true)}
-              className="inline-flex items-center gap-1 rounded-full bg-brand px-3 py-0.5 text-[11px] font-bold text-white shadow-2xs hover:opacity-90 transition cursor-pointer"
-            >
-              <Zap className="size-3" /> Please upgrade for pro
-            </button>
-            <button
-              type="button"
-              onClick={() => setDismissedBanner(true)}
-              className="text-muted-foreground hover:text-ink p-1 transition"
-              title="Dismiss banner"
-            >
-              <X className="size-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Main App Content */}
       <div className="flex-1 flex flex-col min-h-0">
         <Outlet />
       </div>
-
-      {/* Global Upgrade & Payment Modal */}
-      <UpgradeModal
-        isOpen={showUpgradeModal}
-        onClose={() => setShowUpgradeModal(false)}
-        onSuccess={() => {
-          refreshSubscriptionStatus();
-        }}
-      />
     </div>
   );
 }

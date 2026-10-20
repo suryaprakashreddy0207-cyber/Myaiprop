@@ -91,72 +91,33 @@ export function getActiveSubscription(): any | null {
 }
 
 export function hasProSubscription(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    const raw = localStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
-    if (!raw) return false;
-    const sub = JSON.parse(raw);
-    return Boolean(sub && sub.planId);
-  } catch {
-    return false;
-  }
+  return true;
 }
 
 export function isFreeUser(): boolean {
-  return !hasProSubscription();
+  return false;
 }
 
 /** Get effective quotas based on active plan or free trial */
 export function getCurrentQuotas() {
-  const sub = getActiveSubscription();
-  if (!sub) return FREE_TRIAL_QUOTA;
-  const plan = PLANS.find((p) => p.id === sub.planId);
-  if (!plan) return FREE_TRIAL_QUOTA;
   return {
-    voiceMinutes: plan.voiceMinutes,
-    presentations: plan.presentations,
-    deepResearchDaily: plan.deepResearchDaily,
-    noCodeCredits: plan.credits,
-    multiplier: plan.multiplier,
-    multiplierLabel: plan.multiplierLabel,
+    voiceMinutes: 999999,
+    presentations: 999999,
+    deepResearchDaily: 999999,
+    noCodeCredits: 999999,
+    multiplier: 100,
+    multiplierLabel: "Unlimited Free",
   };
 }
 
 /* ----------------- No-Code Credits ----------------- */
 
 export function getUserCredits(): number {
-  if (typeof window === "undefined") return 5;
-  try {
-    const raw = localStorage.getItem(CREDITS_STORAGE_KEY);
-    if (raw !== null) {
-      return Math.max(0, Number(raw));
-    }
-    // Default free trial credits (5 credits)
-    localStorage.setItem(CREDITS_STORAGE_KEY, "5");
-    return 5;
-  } catch {
-    return 5;
-  }
+  return 9999;
 }
 
 export function deductUserCredit(): boolean {
-  if (typeof window === "undefined") return true;
-  try {
-    const current = getUserCredits();
-    if (current <= 0) {
-      triggerUpgradeModal();
-      return false;
-    }
-    const next = Math.max(0, current - 1);
-    localStorage.setItem(CREDITS_STORAGE_KEY, String(next));
-    dispatchCreditsChanged(next);
-    if (next === 0) {
-      triggerUpgradeModal();
-    }
-    return true;
-  } catch {
-    return true;
-  }
+  return true;
 }
 
 export function addUserCredits(count: number) {

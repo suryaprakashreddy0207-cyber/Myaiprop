@@ -523,6 +523,14 @@ export function detectAppFromSpeech(text: string): {
   scheme: string;
 } | null {
   const s = text.toLowerCase().trim();
+
+  // If user is asking to code, write code, build an app/browser, play music, or perform multi-tasking, do not intercept as pure app launch!
+  const isCodingOrCreativeIntent =
+    /\b(code|writing|write|start writing|build|make|browser|create|generate|python|react|script|html|play|song|music|listen)\b/i.test(s);
+  if (isCodingOrCreativeIntent) {
+    return null;
+  }
+
   const isLaunchIntent = /\b(open|launch|start|run|go to|show me|take me to|navigate to)\b/i.test(s);
   if (!isLaunchIntent) return null;
 
@@ -541,14 +549,16 @@ export function detectAppFromSpeech(text: string): {
 
   // Generic app match (e.g. "open My Custom App")
   const match = s.match(/(?:open|launch)\s+([a-zA-Z0-9\s]+?)(?:\s+(?:app|website|on my phone|on device|now))?$/i);
-  if (match && match[1] && match[1].trim() !== "this" && match[1].trim().length > 1) {
-    const name = match[1].trim();
-    return {
-      app: name,
-      title: `Open ${name}`,
-      url: `https://www.google.com/search?q=${encodeURIComponent(name)}+app`,
-      scheme: `${name.toLowerCase().replace(/\s+/g, "")}://`,
-    };
+  if (match && match[1]) {
+    const rawName = match[1].trim();
+    if (rawName && rawName !== "this" && rawName !== "app" && rawName.length > 1 && !rawName.includes("and")) {
+      return {
+        app: rawName,
+        title: `Open ${rawName}`,
+        url: `https://www.google.com/search?q=${encodeURIComponent(rawName)}+app`,
+        scheme: `${rawName.toLowerCase().replace(/\s+/g, "")}://`,
+      };
+    }
   }
 
   return null;

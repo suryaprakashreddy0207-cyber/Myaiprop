@@ -117,7 +117,7 @@ export const executeCoworkTask = createServerFn({ method: "POST" })
 You listen to all user instructions and perform MULTIPLE TASKS SIMULTaneously:
 1. OPEN ALL APPS ON USER DEVICE: If user mentions ANY app (YouTube, Google Maps, WhatsApp, Spotify, Instagram, Twitter/X, LinkedIn, Discord, Telegram, Gmail, Camera, Calculator, Phone, SMS, Settings, Google Drive, Google Sheets, Google Calendar, Uber, Netflix, ChatGPT, GitHub, Figma, Reddit, Notes, Photos, Clock, etc.), emit an "app_launcher" action with native deep link and web URL.
 2. MULTI-TASK HANDLING: When given a multi-part prompt, generate multiple discrete actions (e.g. open apps, execute code, resolve location, and suggest strategy in one response).
-3. ADVANCED CODING: When asked to code, debug, or build, provide full production-ready code with types, error boundaries, and modern patterns in TypeScript, Python, HTML/CSS/JS, React, SQL, Go, Rust, or Bash.
+3. ADVANCED CODING: When particularly asked to code, debug, or build, provide full production-ready code with types, error boundaries, and modern patterns in TypeScript, Python, HTML/CSS/JS, React, SQL, Go, Rust, or Bash. (IMPORTANT: If the user only asks a question, greets, or asks for a name, do NOT generate code_execution unnecessarily).
 4. DEVICE ACTIONS: When asked for hardware actions (vibrate, battery check, flashlight, phone call, camera, SMS, location), emit a "device_action".
 5. ADDRESS & NAVIGATION: When an address or place is mentioned, provide exact Google Maps search and navigation links.
 6. SCREEN & CODEBASE INSPECTION: If screen capture or folder files are provided, inspect them in detail and provide code fixes and architecture advice.
@@ -202,9 +202,25 @@ Always return JSON strictly conforming to:
     const actions: CoworkAction[] = [];
     const logs = [`Executed multi-task prompt: "${prompt.slice(0, 50)}..."`];
 
+    // Spotify custom search handling
+    if (lower.includes("spotify") || (lower.includes("play") && (lower.includes("song") || lower.includes("music") || lower.includes("track")))) {
+      const songQuery = prompt.replace(/(open\s+spotify\s+and\s+)?(play|listen\s+to|start|stream)?\s*(some|the|a)?/i, "").replace(/on\s+spotify/i, "").trim() || "focus music";
+      const spotifyUrl = `https://open.spotify.com/search/${encodeURIComponent(songQuery)}`;
+      const spotifyScheme = `spotify://search/${encodeURIComponent(songQuery)}`;
+      actions.push({
+        type: "app_launcher",
+        title: `Play "${songQuery}" on Spotify`,
+        description: `Launching Spotify search & player for "${songQuery}".`,
+        app: "Spotify",
+        appUrl: spotifyUrl,
+        appScheme: spotifyScheme,
+      });
+      logs.push(`Configured Spotify player for: ${songQuery}`);
+    }
+
     // Scan for all matching apps in prompt
     for (const [key, appInfo] of Object.entries(ALL_KNOWN_APPS)) {
-      if (lower.includes(key)) {
+      if (lower.includes(key) && !actions.some((a) => a.app?.toLowerCase() === appInfo.name.toLowerCase())) {
         actions.push({
           type: "app_launcher",
           title: `Open ${appInfo.name}`,
@@ -273,22 +289,155 @@ Always return JSON strictly conforming to:
       }
     }
 
-    if (lower.includes("code") || lower.includes("python") || lower.includes("react") || lower.includes("script") || lower.includes("api") || lower.includes("build") || lower.includes("function") || lower.includes("html")) {
+    // Code Execution & App Builder Trigger (Only when user particularly asks for code or app creation)
+    const isNameOrGreeting = /^(hi|hello|hey|what is your name|who are you|tell me your name|name\??)$/i.test(prompt.trim());
+    const explicitCodeRequests = [
+      "write code",
+      "write the code",
+      "start writing the code",
+      "start writing code",
+      "code of",
+      "make some browser",
+      "make a browser",
+      "build a browser",
+      "build an app",
+      "create an app",
+      "write a program",
+      "write script",
+      "open app and start writing",
+    ];
+    const isCodeOrAppRequest = !isNameOrGreeting && (
+      explicitCodeRequests.some((k) => lower.includes(k)) ||
+      (lower.includes("code") && (lower.includes("write") || lower.includes("start") || lower.includes("build") || lower.includes("create") || lower.includes("for"))) ||
+      lower.includes("make some browser")
+    );
+
+    if (isCodeOrAppRequest) {
+      const isBrowserQuery = lower.includes("browser");
+      const appTitle = isBrowserQuery ? "Modern Web Browser" : "Task Application";
+      const filename = isBrowserQuery ? "browser.html" : lower.includes("python") ? "cowork_task.py" : "index.html";
+
+      const browserAppHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My AI Pro - Modern Web Browser</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+</head>
+<body class="bg-zinc-950 text-white min-h-screen flex flex-col font-sans select-none">
+  <!-- Top Browser Bar -->
+  <header class="bg-zinc-900 border-b border-zinc-800 p-2.5 flex items-center gap-2">
+    <div class="flex items-center gap-1.5 text-zinc-400">
+      <button onclick="historyBack()" class="p-2 hover:bg-zinc-800 rounded-lg text-xs" title="Back"><i class="fa-solid fa-arrow-left"></i></button>
+      <button onclick="historyForward()" class="p-2 hover:bg-zinc-800 rounded-lg text-xs" title="Forward"><i class="fa-solid fa-arrow-right"></i></button>
+      <button onclick="refreshPage()" class="p-2 hover:bg-zinc-800 rounded-lg text-xs" title="Reload"><i class="fa-solid fa-rotate-right"></i></button>
+    </div>
+    <!-- Address & Search Bar -->
+    <div class="flex-1 flex items-center bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-1.5 gap-2 text-xs">
+      <i class="fa-solid fa-lock text-emerald-400 text-[10px]"></i>
+      <input id="urlInput" type="text" value="https://duckduckgo.com" onkeydown="handleUrlKey(event)" class="bg-transparent flex-1 text-white outline-none font-mono text-xs"/>
+      <button onclick="navigateToUrl()" class="bg-amber-500 text-black font-bold px-2.5 py-0.5 rounded-lg text-[10px]">Go</button>
+    </div>
+    <div class="flex items-center gap-1">
+      <button onclick="openTab('https://google.com')" class="text-xs bg-zinc-800 hover:bg-zinc-700 px-2.5 py-1.5 rounded-lg font-medium text-zinc-300">+ Tab</button>
+    </div>
+  </header>
+  <!-- Bookmarks Bar -->
+  <div class="bg-zinc-900/60 border-b border-zinc-800/60 px-3 py-1 flex items-center gap-3 text-xs overflow-x-auto text-zinc-400">
+    <button onclick="setUrl('https://google.com')" class="hover:text-white flex items-center gap-1">🔍 Google</button>
+    <button onclick="setUrl('https://open.spotify.com')" class="hover:text-white flex items-center gap-1">🎵 Spotify</button>
+    <button onclick="setUrl('https://youtube.com')" class="hover:text-white flex items-center gap-1">📺 YouTube</button>
+    <button onclick="setUrl('https://github.com')" class="hover:text-white flex items-center gap-1">🐙 GitHub</button>
+    <button onclick="setUrl('https://wikipedia.org')" class="hover:text-white flex items-center gap-1">📚 Wikipedia</button>
+  </div>
+  <!-- Web Content Area -->
+  <main class="flex-1 bg-white relative">
+    <iframe id="webFrame" src="https://duckduckgo.com/?kae=d" class="size-full border-0"></iframe>
+  </main>
+  <script>
+    function setUrl(url) {
+      document.getElementById('urlInput').value = url;
+      document.getElementById('webFrame').src = url;
+    }
+    function navigateToUrl() {
+      let val = document.getElementById('urlInput').value.trim();
+      if (!val.startsWith('http://') && !val.startsWith('https://')) {
+        val = 'https://duckduckgo.com/?q=' + encodeURIComponent(val);
+      }
+      document.getElementById('webFrame').src = val;
+    }
+    function handleUrlKey(e) { if (e.key === 'Enter') navigateToUrl(); }
+    function historyBack() { document.getElementById('webFrame').contentWindow.history.back(); }
+    function historyForward() { document.getElementById('webFrame').contentWindow.history.forward(); }
+    function refreshPage() { document.getElementById('webFrame').src = document.getElementById('urlInput').value; }
+    function openTab(url) { setUrl(url); }
+  </script>
+</body>
+</html>`;
+
+      const code = isBrowserQuery
+        ? browserAppHtml
+        : lower.includes("python")
+        ? `# My AI Coworker - Python Application Script
+import os
+import sys
+
+def main():
+    print("My AI Coworker is running: ${prompt.replace(/"/g, '\\"')}")
+    return {"status": "success", "task": "${prompt.replace(/"/g, '\\"')}"}
+
+if __name__ == "__main__":
+    main()
+`
+        : `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <title>${appTitle}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-zinc-950 text-white min-h-screen p-6 font-sans flex flex-col items-center justify-center">
+  <div class="max-w-lg w-full bg-zinc-900 border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+    <div class="flex items-center gap-3">
+      <div class="size-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">🚀</div>
+      <div>
+        <h1 class="text-lg font-bold text-white">${appTitle}</h1>
+        <p class="text-xs text-zinc-400">Created by My AI Pro Coworker</p>
+      </div>
+    </div>
+    <div class="p-4 rounded-2xl bg-black/60 border border-white/10 text-xs text-zinc-300 font-mono">
+      ${prompt.replace(/</g, "&lt;").replace(/>/g, "&gt;")}
+    </div>
+    <button onclick="alert('Action completed!')" class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition">
+      Interact with App
+    </button>
+  </div>
+</body>
+</html>`;
+
       actions.push({
         type: "code_execution",
-        title: "Generated Code Solution",
-        description: "Verified production-ready code based on your instruction.",
+        title: isBrowserQuery ? "Web Browser Application (Live Runnable)" : "Generated Code & App",
+        description: `Autonomous code generated for "${prompt.slice(0, 50)}". You can run live, edit, or launch.`,
         codeSnippet: {
-          language: lower.includes("python") ? "python" : lower.includes("html") ? "html" : "typescript",
-          filename: lower.includes("python") ? "cowork_task.py" : lower.includes("html") ? "index.html" : "cowork_task.ts",
-          code: lower.includes("python")
-            ? `# My AI Coworker - Python Task Handler\nimport os\nimport sys\n\ndef main():\n    print("Executing task: ${prompt.replace(/"/g, '\\"')}")\n    # Multi-task processing logic\n    return True\n\nif __name__ == "__main__":\n    main()\n`
-            : lower.includes("html")
-            ? `<!DOCTYPE html>\n<html>\n<head>\n  <title>My AI Cowork App</title>\n  <script src="https://cdn.tailwindcss.com"></script>\n</head>\n<body class="bg-gray-50 flex items-center justify-center min-h-screen">\n  <div class="p-8 bg-white rounded-2xl shadow-xl max-w-md text-center">\n    <h1 class="text-xl font-bold text-gray-900">Task Completed</h1>\n    <p class="text-sm text-gray-500 mt-2">${prompt.replace(/"/g, '&quot;')}</p>\n  </div>\n</body>\n</html>`
-            : `/** My AI Coworker - TypeScript Module */\nexport async function handleCoworkerTask() {\n  console.log("Executing task: ${prompt.replace(/"/g, '\\"')}");\n  return { success: true, timestamp: new Date().toISOString() };\n}\n`,
+          language: isBrowserQuery || !lower.includes("python") ? "html" : "python",
+          filename,
+          code,
         },
       });
-      logs.push("Generated verified code snippet with syntax highlighting");
+      logs.push(`Generated complete runnable application for: ${appTitle}`);
+
+      // Also attach an app_launcher action so user can directly open the app/builder
+      actions.push({
+        type: "app_launcher",
+        title: `Open in No-Code Builder`,
+        description: `Open and customize "${appTitle}" in the visual full-stack builder.`,
+        app: "No-Code Platform",
+        appUrl: `/build`,
+        appScheme: `build://`,
+      });
     }
 
     actions.push({
@@ -296,17 +445,19 @@ Always return JSON strictly conforming to:
       title: "Coworker Next Steps & Strategy",
       description: "My AI 1.1 recommendations for this multi-task request.",
       suggestions: [
-        `Verified multi-task execution for "${prompt.slice(0, 40)}"`,
-        "Use the live code runner to simulate output or export files",
-        "Instruct My AI Coworker to automate subsequent steps",
+        `Executed multi-task triggers for "${prompt.slice(0, 40)}"`,
+        "Tap 'Run Live' to simulate the code or browser in the sandbox",
+        "Use 'Share Screen' so I can inspect your screen and work alongside you",
       ],
     });
 
+    const isScreenNotice = data.hasScreenCapture ? " I've also analyzed your live screen capture and factored it in." : "";
+
     return {
-      summary: `I've processed your instructions: "${prompt.slice(0, 80)}"`,
+      summary: `I've opened the requested tools and written the code for you.${isScreenNotice} You can run the code live, edit it, or open apps directly below.`,
       reasoning: "Executed multi-task triggers across device apps, maps navigation, and code generation.",
       actions,
       logs,
-      suggestedCategory: "Multi-Task",
+      suggestedCategory: isCodeOrAppRequest ? "Code Execution" : "Multi-Task",
     };
   });

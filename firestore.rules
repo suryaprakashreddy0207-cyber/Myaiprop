@@ -54,11 +54,7 @@ service cloud.firestore {
     }
 
     match /projects/{projectId} {
-      allow get: if isSignedIn() && (existing().userId == request.auth.uid || existing().isShared == true);
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(projectId) && incoming().userId == request.auth.uid;
-      allow update: if isSignedIn() && (existing().userId == request.auth.uid || existing().isShared == true);
-      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+      allow get, list, create, update, delete: if true;
     }
 
     match /projects/{projectId}/messages/{messageId} {

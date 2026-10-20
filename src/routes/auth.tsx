@@ -253,6 +253,16 @@ function AuthPage() {
       </div>
 
       <div className="relative z-10 w-full max-w-md rounded-3xl border border-amber-500/30 bg-[#140f0b]/85 p-8 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.8),0_0_40px_rgba(245,158,11,0.15)] ring-1 ring-white/10">
+        {/* Cancel / Close Logo returning to no-code platform */}
+        <button
+          type="button"
+          onClick={() => navigate({ to: "/chat/$threadId", params: { threadId: "default" } })}
+          className="absolute top-4 right-4 flex size-8 items-center justify-center rounded-full bg-white/5 border border-white/10 text-stone-400 hover:text-white hover:bg-white/10 transition"
+          title="Cancel and return to no-code platform"
+        >
+          <X className="size-4" />
+        </button>
+
         <div className="mb-6 text-center">
           {/* Skyrocket glowing emblem */}
           <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-600 via-orange-500 to-amber-400 text-white shadow-[0_0_30px_rgba(245,158,11,0.6)] animate-bounce">
@@ -311,14 +321,14 @@ function AuthPage() {
           </form>
         ) : (
           <>
-            {/* Continue for Free / Login with Firebase Button */}
+            {/* Continue with Google */}
             <button
               type="button"
               onClick={handleGoogle}
               disabled={loading}
-              className="mb-4 flex w-full items-center justify-center gap-3 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 px-4 py-3.5 text-sm font-bold text-white transition hover:scale-[1.02] active:scale-[0.99] disabled:opacity-50 shadow-[0_0_25px_rgba(245,158,11,0.5)] cursor-pointer"
+              className="mb-4 flex w-full items-center justify-center gap-3 rounded-full bg-white text-zinc-900 border border-zinc-200 px-4 py-3.5 text-sm font-semibold transition hover:bg-zinc-100 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 shadow-md cursor-pointer"
             >
-              <svg className="size-4 shrink-0 fill-white" viewBox="0 0 48 48">
+              <svg className="size-4 shrink-0" viewBox="0 0 48 48">
                 <path
                   fill="#EA4335"
                   d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
@@ -336,7 +346,7 @@ function AuthPage() {
                   d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
                 />
               </svg>
-              <span>Continue for Free with Firebase</span>
+              <span>Continue with Google</span>
             </button>
 
             <div className="my-4 flex items-center gap-4">

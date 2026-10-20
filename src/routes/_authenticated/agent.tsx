@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { executeCoworkTask, type CoworkResponse, type CoworkAction } from "@/lib/cowork.functions";
+import { transcribeAudio } from "@/lib/voice.functions";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/agent")({
@@ -65,6 +66,7 @@ type TaskItem = {
 
 export function AgentCoworkPage() {
   const coworkFn = useServerFn(executeCoworkTask);
+  const transcribeFn = useServerFn(transcribeAudio);
 
   const [prompt, setPrompt] = useState("");
   const [listening, setListening] = useState(false);
@@ -73,6 +75,11 @@ export function AgentCoworkPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showPlusMenu, setShowPlusMenu] = useState(false);
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
+
+  // Screen Sharing State with AI Co-worker
+  const [screenSharing, setScreenSharing] = useState(false);
+  const screenStreamRef = useRef<MediaStream | null>(null);
+  const screenVideoRef = useRef<HTMLVideoElement>(null);
 
   // Live code runner state
   const [previewCode, setPreviewCode] = useState<{ code: string; language: string; title: string } | null>(null);
@@ -92,6 +99,9 @@ export function AgentCoworkPage() {
   const folderInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
+  const audioStreamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedAudioChunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
     if (tasks.length > 0) {
@@ -99,63 +109,224 @@ export function AgentCoworkPage() {
     }
   }, [tasks]);
 
-  // Speech Recognition Setup for voice instruction
+  // Capture frame from active screen sharing video stream
+  const captureScreenSnapshot = useCallback((): string | null => {
+    if (!screenVideoRef.current) return null;
+    try {
+      const v = screenVideoRef.current;
+      if (v.videoWidth === 0 || v.videoHeight === 0) return null;
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.min(v.videoWidth, 1280);
+      canvas.height = Math.min(v.videoHeight, 720);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+      ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
+      setScreenCaptureUrl(dataUrl);
+      return dataUrl;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // Stop screen sharing cleanly
+  const stopScreenSharing = useCallback(() => {
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((t) => t.stop());
+      screenStreamRef.current = null;
+    }
+    if (screenVideoRef.current) {
+      screenVideoRef.current.srcObject = null;
+    }
+    setScreenSharing(false);
+    toast.info("Screen sharing ended");
+  }, []);
+
+  // Periodic screen capture so AI coworker continuously sees user's screen
   useEffect(() => {
-    if (typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!screenSharing) return;
+    const interval = setInterval(() => {
+      captureScreenSnapshot();
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [screenSharing, captureScreenSnapshot]);
+
+  const handleSendRef = useRef<(text?: string) => void>(() => {});
+
+  // Guaranteed Dual Microphone Audio Recording Pipeline (MediaRecorder + Web Speech API)
+  const stopVoiceListening = useCallback(async () => {
+    setListening(false);
+    if (recognitionRef.current) {
       try {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = "en-US";
-
-        recognition.onresult = (event: any) => {
-          let transcript = "";
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            transcript += event.results[i][0].transcript;
-          }
-          if (transcript.trim()) {
-            setPrompt(transcript);
-          }
-        };
-
-        recognition.onerror = () => {
-          setListening(false);
-        };
-
-        recognition.onend = () => {
-          setListening(false);
-        };
-
-        recognitionRef.current = recognition;
+        recognitionRef.current.stop();
       } catch {
-        // Speech not available
+        // ignore
       }
+    }
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {
+        // ignore
+      }
+    }
+
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach((t) => t.stop());
+      audioStreamRef.current = null;
+    }
+
+    // If live transcript was empty or speech recognition failed, transcribe via server audio model
+    if (!prompt.trim() && recordedAudioChunksRef.current.length > 0) {
+      try {
+        const mime = mediaRecorderRef.current?.mimeType || "audio/webm";
+        const blob = new Blob(recordedAudioChunksRef.current, { type: mime });
+        if (blob.size > 500) {
+          toast.info("Transcribing voice with My AI Neural Engine...");
+          const reader = new FileReader();
+          reader.onload = async () => {
+            const b64 = reader.result as string;
+            try {
+              const res = await transcribeFn({
+                data: { audioDataUrl: b64 },
+              });
+              if (res?.transcript && res.transcript.trim()) {
+                setPrompt(res.transcript.trim());
+                handleSendRef.current(res.transcript.trim());
+              }
+            } catch {
+              // ignore
+            }
+          };
+          reader.readAsDataURL(blob);
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [prompt, transcribeFn]);
+
+  const startVoiceListening = useCallback(async () => {
+    try {
+      recordedAudioChunksRef.current = [];
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: { ideal: true },
+          autoGainControl: { ideal: true },
+        },
+      });
+      audioStreamRef.current = stream;
+
+      // Start MediaRecorder buffer for neural audio transcription
+      try {
+        let mime = "";
+        const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+        for (const c of candidates) {
+          if (MediaRecorder.isTypeSupported(c)) {
+            mime = c;
+            break;
+          }
+        }
+        const recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            recordedAudioChunksRef.current.push(e.data);
+          }
+        };
+        recorder.start(250);
+        mediaRecorderRef.current = recorder;
+      } catch {
+        // optional
+      }
+
+      setListening(true);
+      toast.info("Listening... Speak your instruction to My AI Co-worker");
+
+      // Start Web Speech API for real-time live typing
+      if (typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)) {
+        const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        try {
+          const r = new SR();
+          r.continuous = true;
+          r.interimResults = true;
+          r.lang = "en-US";
+          r.onresult = (evt: any) => {
+            let fullTranscript = "";
+            for (let i = 0; i < evt.results.length; i++) {
+              fullTranscript += evt.results[i][0]?.transcript || "";
+            }
+            if (fullTranscript.trim()) {
+              setPrompt(fullTranscript.trim());
+            }
+          };
+          r.onerror = () => {
+            // keep listening with MediaRecorder even if Web Speech fails
+          };
+          recognitionRef.current = r;
+          r.start();
+        } catch {
+          // ignore
+        }
+      }
+    } catch {
+      toast.error("Microphone permission required. Please allow microphone access.");
+      setListening(false);
     }
   }, []);
 
   const toggleListening = () => {
     if (listening) {
-      try {
-        recognitionRef.current?.stop();
-      } catch {
-        // ignore
-      }
-      setListening(false);
+      stopVoiceListening();
     } else {
-      if (!recognitionRef.current) {
-        toast.error("Speech recognition not supported in this browser. Please type your instruction.");
-        return;
-      }
-      try {
-        recognitionRef.current.start();
-        setListening(true);
-        toast.info("Listening... Speak your instruction (e.g. 'Open WhatsApp and message owner')");
-      } catch {
-        setListening(false);
-      }
+      startVoiceListening();
     }
   };
+
+  // Start Screen Sharing with AI Co-worker ("share your screen with my AI co-worker")
+  const startScreenSharingWithCoworker = useCallback(async () => {
+    setShowPlusMenu(false);
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      toast.error("Screen sharing is not supported in this browser.");
+      return;
+    }
+    try {
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { cursor: "always" } as any,
+        audio: false,
+      });
+
+      screenStreamRef.current = stream;
+      setScreenSharing(true);
+
+      if (screenVideoRef.current) {
+        screenVideoRef.current.srcObject = stream;
+      }
+
+      stream.getVideoTracks()[0]?.addEventListener("ended", () => {
+        stopScreenSharing();
+      });
+
+      // Take first snapshot immediately
+      setTimeout(() => {
+        captureScreenSnapshot();
+      }, 500);
+
+      // Automatically keep microphone active so AI coworker listens while screen is shared
+      if (!listening) {
+        startVoiceListening();
+      }
+
+      toast.success("Screen Shared! My AI Co-worker is watching your screen and listening.");
+    } catch (err: any) {
+      if (err.name !== "NotAllowedError") {
+        toast.error("Could not activate screen sharing.");
+      }
+    }
+  }, [stopScreenSharing, captureScreenSnapshot, listening, startVoiceListening]);
 
   // Text to Speech playback for coworker voice responses
   const speakResponse = useCallback((text: string) => {
@@ -280,6 +451,7 @@ export function AgentCoworkPage() {
 
     coworkMutation.mutate(text);
   };
+  handleSendRef.current = handleSend;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -339,8 +511,34 @@ export function AgentCoworkPage() {
           </div>
         </div>
 
-        {/* Right side status / New Session */}
+        {/* Right side status / Screen Sharing / New Session */}
         <div className="flex items-center gap-2 pointer-events-auto">
+          {screenSharing ? (
+            <div className="flex items-center gap-2 rounded-full bg-emerald-950/90 border border-emerald-500/50 px-3 py-1.5 shadow-lg">
+              <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-xs font-semibold text-emerald-300">Screen Active</span>
+              <button
+                type="button"
+                onClick={stopScreenSharing}
+                className="text-[10px] bg-red-600/90 hover:bg-red-600 text-white px-2 py-0.5 rounded-full font-bold ml-1 transition cursor-pointer"
+                title="Stop sharing screen"
+              >
+                Stop
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={startScreenSharingWithCoworker}
+              className="flex items-center gap-1.5 rounded-full bg-zinc-900/90 border border-white/10 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:text-white hover:border-amber-500/50 hover:bg-zinc-800 transition shadow-lg cursor-pointer"
+              title="Share your screen with my AI co-worker"
+            >
+              <Monitor className="size-3.5 text-amber-500" />
+              <span className="hidden sm:inline">Share Screen with Coworker</span>
+              <span className="sm:hidden">Share Screen</span>
+            </button>
+          )}
+
           {tasks.length > 0 && (
             <button
               type="button"
@@ -372,6 +570,53 @@ export function AgentCoworkPage() {
           </button>
         </div>
       </header>
+
+      {/* Floating Live Screen Vision Preview Card */}
+      {screenSharing && (
+        <div className="fixed top-20 right-4 sm:right-6 z-40 w-72 sm:w-80 rounded-2xl bg-zinc-950/95 border border-emerald-500/50 p-3 shadow-2xl backdrop-blur-md space-y-2 animate-in fade-in zoom-in-95">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-emerald-400 animate-ping" />
+              <h4 className="text-xs font-bold text-white">Live Screen Shared</h4>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  captureScreenSnapshot();
+                  toast.success("Snapshot captured for My AI Co-worker");
+                }}
+                className="text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-2 py-0.5 rounded-lg border border-white/10 transition cursor-pointer"
+                title="Capture screen frame"
+              >
+                Snapshot
+              </button>
+              <button
+                type="button"
+                onClick={stopScreenSharing}
+                className="text-[10px] font-bold bg-red-500/20 hover:bg-red-500/40 text-red-300 px-2 py-0.5 rounded-lg border border-red-500/30 transition cursor-pointer"
+              >
+                Stop
+              </button>
+            </div>
+          </div>
+          <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black border border-white/10">
+            <video
+              ref={screenVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="size-full object-contain"
+            />
+          </div>
+          <div className="flex items-center justify-between text-[10px] text-zinc-400 px-1">
+            <span className="flex items-center gap-1 text-emerald-400 font-medium">
+              <Mic className="size-3 animate-pulse" /> Listening to your instructions
+            </span>
+            <span className="text-zinc-500">Live AI Vision</span>
+          </div>
+        </div>
+      )}
 
       {/* 2. MAIN WORKSPACE / EMPTY STATE (Matching screenshot pixel-for-pixel) */}
       <main className="flex-1 overflow-y-auto px-4 pt-24 pb-32 flex flex-col justify-between">
@@ -587,10 +832,19 @@ export function AgentCoworkPage() {
                                           <span>Download</span>
                                         </button>
 
+                                        <Link
+                                          to="/build"
+                                          className="flex items-center gap-1 rounded-lg bg-zinc-800 border border-white/10 px-2.5 py-1 text-[11px] font-medium text-amber-300 hover:bg-zinc-700 transition"
+                                          title="Open in No-Code Visual Builder"
+                                        >
+                                          <Code className="size-3" />
+                                          <span>Visual Builder</span>
+                                        </Link>
+
                                         <button
                                           type="button"
                                           onClick={() => setPreviewCode({ code: activeCode, language: snippet.language, title: snippet.filename })}
-                                          className="flex items-center gap-1 rounded-lg bg-amber-500 text-black px-3 py-1 text-[11px] font-bold hover:bg-amber-400 transition shadow-xs"
+                                          className="flex items-center gap-1 rounded-lg bg-amber-500 text-black px-3 py-1 text-[11px] font-bold hover:bg-amber-400 transition shadow-xs cursor-pointer"
                                         >
                                           <Play className="size-3 fill-black" />
                                           <span>Run Live</span>
@@ -624,6 +878,40 @@ export function AgentCoworkPage() {
                                         </pre>
                                       )}
                                     </div>
+                                  </div>
+                                );
+                              }
+
+                              // Follow-up Questions / Interactive Suggestions Card
+                              if (act.type === "suggestion" || (act.suggestions && act.suggestions.length > 0)) {
+                                return (
+                                  <div
+                                    key={aIdx}
+                                    className="col-span-1 sm:col-span-2 rounded-2xl bg-zinc-900 border border-amber-500/30 p-4 space-y-3 shadow-md"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <div className="size-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
+                                        <Sparkles className="size-4" />
+                                      </div>
+                                      <div>
+                                        <h4 className="text-xs font-bold text-white">{act.title || "Next Steps & Suggestions"}</h4>
+                                        <p className="text-[11px] text-zinc-400">{act.description}</p>
+                                      </div>
+                                    </div>
+                                    {act.suggestions && (
+                                      <div className="flex flex-wrap gap-2 pt-1">
+                                        {act.suggestions.map((sug, sIdx) => (
+                                          <button
+                                            key={sIdx}
+                                            type="button"
+                                            onClick={() => handleSend(sug)}
+                                            className="rounded-full bg-zinc-800 hover:bg-amber-500 hover:text-black border border-white/10 px-3.5 py-1.5 text-xs text-zinc-200 font-medium transition cursor-pointer text-left active:scale-95 shadow-xs"
+                                          >
+                                            💬 {sug}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               }
@@ -749,49 +1037,92 @@ export function AgentCoworkPage() {
 
       {/* Popover Menu for + Button */}
       {showPlusMenu && (
-        <div className="fixed bottom-24 left-6 sm:left-1/4 z-40 w-64 rounded-2xl bg-zinc-900 border border-white/15 p-2 shadow-2xl backdrop-blur-xl space-y-1 animate-in fade-in slide-in-from-bottom-2">
+        <div className="fixed bottom-24 left-6 sm:left-1/4 z-40 w-72 rounded-2xl bg-zinc-900 border border-white/15 p-2 shadow-2xl backdrop-blur-xl space-y-1 animate-in fade-in slide-in-from-bottom-2 text-left">
+          {/* 1. Share your screen with my AI co-worker */}
+          <button
+            type="button"
+            onClick={startScreenSharingWithCoworker}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-bold text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 rounded-xl transition cursor-pointer"
+          >
+            <Monitor className="size-4 text-amber-400 shrink-0" />
+            <span className="truncate">Share your screen with my AI co-worker</span>
+          </button>
+
+          {/* 2. Open App & Start Writing Code */}
+          <button
+            type="button"
+            onClick={() => {
+              setShowPlusMenu(false);
+              handleSend("Open app and start writing the code");
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800 rounded-xl transition cursor-pointer"
+          >
+            <Code className="size-4 text-amber-400 shrink-0" />
+            <span>Open App &amp; Start Writing Code</span>
+          </button>
+
+          {/* 3. Make Some Browser */}
+          <button
+            type="button"
+            onClick={() => {
+              setShowPlusMenu(false);
+              handleSend("Make some browser with modern tabs, bookmarks, and search bar");
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800 rounded-xl transition cursor-pointer"
+          >
+            <ExternalLink className="size-4 text-sky-400 shrink-0" />
+            <span>Make Web Browser</span>
+          </button>
+
+          {/* 4. Open Spotify & Play Music */}
+          <button
+            type="button"
+            onClick={() => {
+              setShowPlusMenu(false);
+              handleSend("Open Spotify and play coding music");
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800 rounded-xl transition cursor-pointer"
+          >
+            <Play className="size-4 text-emerald-400 shrink-0" />
+            <span>Open Spotify &amp; Play Music</span>
+          </button>
+
+          {/* 5. Message Company Owner */}
           <button
             type="button"
             onClick={() => {
               setShowPlusMenu(false);
               handleSend("Open WhatsApp and start messaging my company owner");
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800 rounded-xl transition"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800 rounded-xl transition cursor-pointer"
           >
-            <MessageSquare className="size-4 text-emerald-400" />
+            <MessageSquare className="size-4 text-emerald-400 shrink-0" />
             <span>Message Company Owner</span>
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setShowPlusMenu(false);
-              handleSend("Open code editor and start writing code for a React app");
-            }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800 rounded-xl transition"
-          >
-            <Code className="size-4 text-amber-400" />
-            <span>Open &amp; Write Code</span>
-          </button>
+
+          {/* 6. Upload Screenshot / Image */}
           <button
             type="button"
             onClick={() => {
               setShowPlusMenu(false);
               imageInputRef.current?.click();
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800 rounded-xl transition"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800 rounded-xl transition cursor-pointer"
           >
-            <ImageIcon className="size-4 text-blue-400" />
+            <ImageIcon className="size-4 text-blue-400 shrink-0" />
             <span>Upload Screenshot / Image</span>
           </button>
+
+          {/* 7. Attach File */}
           <button
             type="button"
             onClick={() => {
               setShowPlusMenu(false);
               fileInputRef.current?.click();
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800 rounded-xl transition"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800 rounded-xl transition cursor-pointer"
           >
-            <Paperclip className="size-4 text-purple-400" />
+            <Paperclip className="size-4 text-purple-400 shrink-0" />
             <span>Attach File</span>
           </button>
         </div>

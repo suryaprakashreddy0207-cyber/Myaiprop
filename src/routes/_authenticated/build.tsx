@@ -9,7 +9,8 @@ import {
   ChevronLeft, Globe, Copy, ExternalLink, Key, Eye, EyeOff, Folder, Image as ImageIcon,
   Github, GitBranch, ThumbsUp, ThumbsDown, Link2, Pencil, MoreHorizontal, Square,
   Code2, MonitorPlay, Lock, Search, RefreshCw, Trash2, Settings, LayoutGrid, Telescope,
-  Presentation, Bot, MessageSquare, Blocks, CreditCard,
+  Presentation, Bot, MessageSquare, Blocks, CreditCard, BookOpen, Bell, Maximize2,
+  Mail, ShoppingBag, HardDrive, FileText, Flame, PhoneCall,
 } from "lucide-react";
 import amberWavesBg from "@/assets/images/amber_waves_bg_1791883311977.jpg";
 import amberGlassOrb from "@/assets/images/amber_glass_orb_1791883331076.jpg";
@@ -34,6 +35,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CodeExplorer } from "@/components/code-explorer";
 import { ProjectControlCenter } from "@/components/project-control-center";
 import { UpgradeModal } from "@/components/upgrade-modal";
+import { Preview } from "@/components/preview-view";
 import { getActiveUserSession, getActiveUserStorageKey } from "@/lib/user-session";
 import { db, signInWithGithubFirebase } from "@/lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
@@ -350,6 +352,15 @@ function BuildPage() {
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
   const [apiKeyInputs, setApiKeyInputs] = useState<Record<number, string>>({});
   const [showKeySecret, setShowKeySecret] = useState<Record<number, boolean>>({});
+  const [userToolKeys, setUserToolKeys] = useState<Record<string, string>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("myai_user_tool_keys") || "{}");
+    } catch {
+      return {};
+    }
+  });
+  const [selectedToolForApiKey, setSelectedToolForApiKey] = useState<string | null>(null);
+  const [toolApiKeyValue, setToolApiKeyValue] = useState<string>("");
 
   // GitHub & folder context state (Public URL + Private Account)
   const [githubModalOpen, setGithubModalOpen] = useState(false);
@@ -369,6 +380,9 @@ function BuildPage() {
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const [scopingImages, setScopingImages] = useState<string[]>([]);
   const [hasLocalEdits, setHasLocalEdits] = useState(false);
+  const [showFullScreenPreview, setShowFullScreenPreview] = useState(false);
+  const [connectorSearchQuery, setConnectorSearchQuery] = useState("");
+  const [connectorFilterCategory, setConnectorFilterCategory] = useState("All");
 
   const folderInputRef = useRef<HTMLInputElement>(null);
   const imagesInputRef = useRef<HTMLInputElement>(null);
@@ -1134,7 +1148,7 @@ function BuildPage() {
           idea: cleanIdeaText,
           model,
           answers: answered,
-          apiKeys: Object.keys(apiKeys).length > 0 ? apiKeys : undefined,
+          apiKeys: Object.keys({ ...apiKeys, ...userToolKeys }).length > 0 ? { ...apiKeys, ...userToolKeys } : undefined,
           githubContext: importedRepo
             ? `GitHub (${importedRepo.isPrivate ? "Private" : "Public"}): ${importedRepo.owner}/${importedRepo.repo}\nFiles: ${importedRepo.files.map((f) => f.path).join(", ")}`
             : undefined,
@@ -1544,111 +1558,192 @@ function BuildPage() {
     </>
   );
 
-  /* ---------- Plus Menu Modal/Sheet (shared across Home & Built Workspace) ---------- */
+  /* ---------- Plus Menu Modal/Sheet (Connectors UI matching user screenshots) ---------- */
   const plusMenuOverlay = menuOpen && (
     <>
-      <div className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px]" onClick={() => setMenuOpen(false)} />
-      <div className="fixed inset-x-3 bottom-24 z-50 mx-auto max-w-lg max-h-[72vh] overflow-y-auto rounded-[28px] bg-white p-4 ring-1 ring-black/10 shadow-2xl space-y-3 text-zinc-900">
-        <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
-          <span className="text-xs font-semibold text-zinc-500">
-            Add to prompt
-          </span>
+      <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs" onClick={() => setMenuOpen(false)} />
+      <div className="fixed inset-x-3 bottom-12 z-50 mx-auto max-w-lg max-h-[82vh] overflow-y-auto rounded-[32px] bg-white p-5 ring-1 ring-black/10 shadow-2xl space-y-4 text-zinc-900 font-sans">
+        {/* Top Header: Connectors title & Custom Dropdown selector */}
+        <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
+          <div className="flex items-center gap-2">
+            <Plug className="size-5 text-zinc-900" />
+            <h2 className="text-base font-bold text-zinc-900">Connectors</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-zinc-800">
+              <span>Custom</span>
+              <ChevronDown className="size-3.5 text-zinc-500" />
+            </div>
+            <button
+              onClick={() => setMenuOpen(false)}
+              className="flex size-8 items-center justify-center rounded-full text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Search Bar & Settings */}
+        <div className="flex items-center gap-2">
+          <div className="flex flex-1 items-center rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs">
+            <Search className="size-4 text-zinc-400 mr-2 shrink-0" />
+            <input
+              value={connectorSearchQuery}
+              onChange={(e) => setConnectorSearchQuery(e.target.value)}
+              placeholder="Search..."
+              className="bg-transparent flex-1 text-zinc-900 outline-none placeholder:text-zinc-400"
+            />
+          </div>
           <button
-            onClick={() => setMenuOpen(false)}
-            className="rounded-full p-1 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100"
+            type="button"
+            className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 transition"
+            title="Connector Settings"
           >
-            <X className="size-4" />
+            <Settings className="size-4" />
           </button>
         </div>
 
-        {/* Primary Action Tiles: Upload Images, Upload Folder, Import GitHub */}
-        <div className="grid grid-cols-3 gap-2.5">
-          {/* Option 1: Upload Images */}
+        {/* Filter Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+          {["All", "Enabled", "Ecommerce", "Communication", "Database", "Storage", "AI"].map((cat) => {
+            const active = connectorFilterCategory === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setConnectorFilterCategory(cat)}
+                className={cn(
+                  "rounded-full px-3.5 py-1.5 font-medium transition whitespace-nowrap shrink-0",
+                  active
+                    ? "bg-zinc-900 text-white shadow-2xs"
+                    : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200",
+                )}
+              >
+                {cat === "All" ? "All 151" : cat === "Enabled" ? `Enabled ${Object.keys(userToolKeys).length + 2}` : cat}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Primary Action Tiles: Upload Images, Folder, GitHub */}
+        <div className="grid grid-cols-3 gap-2 pt-1">
           <button
             type="button"
-            onClick={() => imagesInputRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3.5 text-center hover:bg-zinc-100 transition group"
+            onClick={() => {
+              setMenuOpen(false);
+              imagesInputRef.current?.click();
+            }}
+            className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-center hover:bg-zinc-100 transition group"
           >
-            <div className="flex size-10 items-center justify-center rounded-xl bg-zinc-900 text-white shadow-xs group-hover:scale-105 transition">
-              <ImageIcon className="size-5" />
+            <div className="flex size-9 items-center justify-center rounded-xl bg-zinc-900 text-white shadow-xs group-hover:scale-105 transition">
+              <ImageIcon className="size-4" />
             </div>
-            <div>
-              <p className="text-xs font-semibold text-zinc-900 leading-tight">Upload Images</p>
-              <p className="text-[10px] text-zinc-500 mt-0.5">Photos & mockups</p>
-            </div>
+            <span className="text-[11px] font-semibold text-zinc-900 leading-tight">Images</span>
           </button>
 
-          {/* Option 2: Upload Folder */}
           <button
             type="button"
-            onClick={handleShareFolder}
-            className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3.5 text-center hover:bg-zinc-100 transition group"
+            onClick={() => {
+              setMenuOpen(false);
+              handleShareFolder();
+            }}
+            className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-center hover:bg-zinc-100 transition group"
           >
-            <div className="flex size-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-xs group-hover:scale-105 transition">
-              <Folder className="size-5" />
+            <div className="flex size-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-xs group-hover:scale-105 transition">
+              <Folder className="size-4" />
             </div>
-            <div>
-              <p className="text-xs font-semibold text-zinc-900 leading-tight">Upload Folder</p>
-              <p className="text-[10px] text-zinc-500 mt-0.5">Project directory</p>
-            </div>
+            <span className="text-[11px] font-semibold text-zinc-900 leading-tight">Folder</span>
           </button>
 
-          {/* Option 3: Import from GitHub */}
           <button
             type="button"
             onClick={() => {
               setMenuOpen(false);
               setGithubModalOpen(true);
             }}
-            className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3.5 text-center hover:bg-zinc-100 transition group"
+            className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-center hover:bg-zinc-100 transition group"
           >
-            <div className="flex size-10 items-center justify-center rounded-xl bg-zinc-800 text-white shadow-xs group-hover:scale-105 transition">
-              <Github className="size-5" />
+            <div className="flex size-9 items-center justify-center rounded-xl bg-zinc-800 text-white shadow-xs group-hover:scale-105 transition">
+              <Github className="size-4" />
             </div>
-            <div>
-              <p className="text-xs font-semibold text-zinc-900 leading-tight">GitHub Repo</p>
-              <p className="text-[10px] text-zinc-500 mt-0.5">Import code</p>
-            </div>
+            <span className="text-[11px] font-semibold text-zinc-900 leading-tight">GitHub</span>
           </button>
         </div>
 
-        {/* Cloud & Tool Groups */}
-        <div className="pt-2 border-t border-zinc-100 space-y-1">
-          <span className="text-[11px] font-medium text-zinc-400 block px-1 mb-1">
-            Integrations & Connectors
-          </span>
-          {TOOL_GROUPS.map((g) => (
-            <div key={g.label} className="border-b border-zinc-100 last:border-0">
-              <button
-                onClick={() => setOpenGroup(openGroup === g.label ? null : g.label)}
-                className="flex w-full items-center gap-3 px-2 py-2.5 text-sm rounded-xl hover:bg-zinc-50 transition text-zinc-800"
-              >
-                <g.icon className="size-4 text-zinc-600" /> {g.label}
-                <span className="ml-auto text-xs text-zinc-400">{g.items.length}</span>
-              </button>
-              {openGroup === g.label && (
-                <div className="flex flex-wrap gap-1.5 px-2 pb-3">
-                  {g.items.map((it) => {
-                    const on = connected.includes(it);
-                    return (
-                      <button
-                        key={`${g.label}-${it}`}
-                        onClick={() =>
-                          setConnected((c) => (on ? c.filter((x) => x !== it) : [...c, it]))
-                        }
-                        className={cn(
-                          "rounded-full px-3 py-1 text-[11px] ring-1 transition",
-                          on ? "bg-zinc-900 text-white ring-zinc-900" : "bg-zinc-50 text-zinc-600 ring-zinc-200 hover:bg-zinc-100",
-                        )}
-                      >
-                        {it}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ))}
+        {/* Connector Cards List matching Screenshots */}
+        <div className="space-y-2 pt-1">
+          {[
+            { name: "Gmail", desc: "Read, send, and manage your emails", category: "Communication", icon: Mail, color: "bg-red-500 text-white" },
+            { name: "Google Maps Platform", desc: "Maps, geocoding, directions, and places APIs", category: "Maps & Location", icon: Globe, color: "bg-emerald-600 text-white" },
+            { name: "Stripe", desc: "Set up payments and subscriptions", category: "Ecommerce", icon: CreditCard, color: "bg-indigo-600 text-white" },
+            { name: "Shopify", desc: "Build an eCommerce store and catalog", category: "Ecommerce", icon: ShoppingBag, color: "bg-green-600 text-white" },
+            { name: "Google Drive", desc: "Upload and download files and folders", category: "Storage", icon: HardDrive, color: "bg-blue-600 text-white" },
+            { name: "Google Sheets", desc: "Read and update spreadsheet data", category: "Database", icon: FileText, color: "bg-emerald-700 text-white" },
+            { name: "Slack", desc: "Send messages and interact with Slack workspace", category: "Communication", icon: MessageSquare, color: "bg-purple-600 text-white" },
+            { name: "Notion", desc: "Add Notion pages and databases to your app", category: "Productivity", icon: FileCode2, color: "bg-zinc-900 text-white" },
+            { name: "GitHub", desc: "Access repos, commits, and webhook events", category: "Development", icon: Github, color: "bg-zinc-800 text-white" },
+            { name: "Supabase", desc: "Postgres database, Auth & realtime storage", category: "Database", icon: Database, color: "bg-emerald-500 text-white" },
+            { name: "Firebase", desc: "Firestore NoSQL database & Google Auth", category: "Database", icon: Flame, color: "bg-amber-500 text-white" },
+            { name: "OpenAI", desc: "Use GPT-4o, embeddings, and generative AI", category: "AI", icon: Sparkles, color: "bg-emerald-400 text-zinc-900" },
+            { name: "Resend", desc: "Developer email API for transactional mail", category: "Communication", icon: Send, color: "bg-zinc-900 text-white" },
+            { name: "Twilio", desc: "Cloud communications for SMS and voice", category: "Communication", icon: PhoneCall, color: "bg-red-600 text-white" },
+          ]
+            .filter((c) => {
+              if (connectorFilterCategory !== "All" && connectorFilterCategory !== "Enabled" && c.category !== connectorFilterCategory) {
+                return false;
+              }
+              if (connectorFilterCategory === "Enabled" && !userToolKeys[c.name]) {
+                return false;
+              }
+              if (connectorSearchQuery.trim()) {
+                const q = connectorSearchQuery.toLowerCase();
+                return c.name.toLowerCase().includes(q) || c.desc.toLowerCase().includes(q);
+              }
+              return true;
+            })
+            .map((conn) => {
+              const hasKey = Boolean(userToolKeys[conn.name]);
+              const IconComp = conn.icon;
+              return (
+                <button
+                  key={conn.name}
+                  type="button"
+                  onClick={() => {
+                    setSelectedToolForApiKey(conn.name);
+                    setToolApiKeyValue(userToolKeys[conn.name] || "");
+                    setMenuOpen(false);
+                  }}
+                  className="relative flex w-full items-center gap-3.5 rounded-2xl border border-zinc-200/80 bg-zinc-50/50 p-3.5 text-left hover:bg-zinc-100 hover:border-zinc-300 transition group cursor-pointer"
+                >
+                  {/* Green active status indicator dot matching screenshots */}
+                  <span
+                    className={cn(
+                      "absolute top-3.5 right-3.5 size-2.5 rounded-full ring-2 ring-white",
+                      hasKey ? "bg-emerald-500 animate-pulse" : "bg-zinc-300",
+                    )}
+                    title={hasKey ? "Connected with API key" : "Not connected"}
+                  />
+
+                  {/* Brand Icon Box */}
+                  <div className={cn("flex size-11 shrink-0 items-center justify-center rounded-2xl shadow-xs transition group-hover:scale-105", conn.color)}>
+                    <IconComp className="size-5" />
+                  </div>
+
+                  {/* Title & Description */}
+                  <div className="min-w-0 flex-1 pr-4">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-bold text-zinc-900 truncate">{conn.name}</p>
+                      {hasKey && (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
+                          Connected
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-zinc-500 truncate mt-0.5">{conn.desc}</p>
+                  </div>
+                </button>
+              );
+            })}
         </div>
       </div>
     </>
@@ -2007,6 +2102,88 @@ function BuildPage() {
       </div>
     </div>
   );
+
+  const toolApiKeyModalOverlay = selectedToolForApiKey && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-black/10 space-y-4 text-zinc-900">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-10 items-center justify-center rounded-2xl bg-zinc-900 text-white shadow-xs">
+              <Key className="size-5 text-amber-400" />
+            </div>
+            <div>
+              <h3 className="font-bold text-zinc-900 text-sm">Connect {selectedToolForApiKey}</h3>
+              <p className="text-xs text-zinc-500">
+                Provide API key or credentials. It will be automatically injected into your app builds.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedToolForApiKey(null)}
+            className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="space-y-3 pt-2">
+          <div>
+            <label className="text-xs font-semibold text-zinc-800 block mb-1">
+              {selectedToolForApiKey} API Key / Secret Token
+            </label>
+            <input
+              type="password"
+              value={toolApiKeyValue}
+              onChange={(e) => setToolApiKeyValue(e.target.value)}
+              placeholder={`Enter your ${selectedToolForApiKey} API key (e.g. AIza..., sk-...)`}
+              className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-3 text-xs text-zinc-900 outline-none focus:border-zinc-900 focus:bg-white font-mono transition"
+            />
+            <p className="text-[11px] text-zinc-500 mt-1">
+              Saved securely in local session. The AI builder will automatically include this key when generating components for {selectedToolForApiKey}.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-100">
+            <button
+              type="button"
+              onClick={() => {
+                const nextKeys = { ...userToolKeys };
+                delete nextKeys[selectedToolForApiKey];
+                setUserToolKeys(nextKeys);
+                localStorage.setItem("myai_user_tool_keys", JSON.stringify(nextKeys));
+                setConnected((c) => c.filter((x) => x !== selectedToolForApiKey));
+                setSelectedToolForApiKey(null);
+                toast.success(`Disconnected ${selectedToolForApiKey}`);
+              }}
+              className="rounded-2xl px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+            >
+              Disconnect
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!toolApiKeyValue.trim()) {
+                  toast.error("Please enter a valid API key or token.");
+                  return;
+                }
+                const nextKeys = { ...userToolKeys, [selectedToolForApiKey]: toolApiKeyValue.trim() };
+                setUserToolKeys(nextKeys);
+                localStorage.setItem("myai_user_tool_keys", JSON.stringify(nextKeys));
+                setConnected((c) => (c.includes(selectedToolForApiKey) ? c : [...c, selectedToolForApiKey]));
+                setSelectedToolForApiKey(null);
+                toast.success(`Successfully connected ${selectedToolForApiKey} with automatic API key injection!`);
+              }}
+              className="rounded-2xl bg-zinc-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-zinc-800 transition shadow-xs"
+            >
+              Save & Connect Tool
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const activeProjectTitle = built?.name || history[0]?.name || "My Project";
   const activeProjectDescription =
     built?.description || history[0]?.description || "Full-stack application on My AI Pro";
@@ -2050,170 +2227,59 @@ function BuildPage() {
     />
   );
 
+  if (showFullScreenPreview && built) {
+    return (
+      <Preview
+        appName={built.name}
+        appDescription={built.description}
+        previewHtml={built.preview_html}
+        onBackToChat={() => setShowFullScreenPreview(false)}
+        onPublish={openPublishModal}
+        onOpenLiveView={async () => {
+          const slug = await persistPublishedApp(built);
+          navigate({ to: "/p/$appId", params: { appId: slug } });
+        }}
+      />
+    );
+  }
+
   if (built) {
     return (
-      <div className="flex h-[100dvh] flex-col bg-[#f7f7f6] font-sans text-zinc-900 select-none sm:select-auto">
+      <div className="flex h-[100dvh] flex-col bg-white font-sans text-zinc-900 select-none sm:select-auto">
         {sharedFileInputs}
         {projectControlCenterModal}
 
-        {/* Top Bar: [ Back + Platforms ]   [ Project Name v ]   [ History + Preview/Publish ] */}
-        <header className="flex h-16 shrink-0 items-center justify-between px-3 sm:px-4 bg-[#f7f7f6]/95 backdrop-blur-md z-30 border-b border-black/5">
-          {/* Left: Platform Switcher (quick shift to Chat, Research, Slides, Coworker, No-Code) */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <div className="relative group">
-              <button
-                type="button"
-                className="flex items-center gap-1.5 rounded-full bg-white border border-black/8 px-3 py-2 text-xs font-semibold text-zinc-700 hover:text-zinc-950 shadow-2xs hover:bg-zinc-50 transition cursor-pointer"
-                title="Switch Platforms & Apps"
-              >
-                <LayoutGrid className="size-4 text-brand" />
-                <span className="text-[12px]">Apps</span>
-                <ChevronDown className="size-3 text-zinc-400 group-hover:text-zinc-700 transition" />
-              </button>
-              <div className="absolute left-0 top-full mt-1.5 hidden group-hover:flex flex-col w-56 rounded-2xl bg-white p-2 shadow-2xl border border-black/10 z-50 animate-in fade-in zoom-in-95">
-                <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-                  Switch Platform
-                </div>
-                <button
-                  type="button"
-                  onClick={reset}
-                  className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-xs text-zinc-800 hover:bg-zinc-100 text-left font-semibold"
-                >
-                  <Blocks className="size-4 text-brand" />
-                  <div>
-                    <div>No-Code Studio</div>
-                    <div className="text-[10px] text-zinc-400 font-normal">All apps & builders</div>
-                  </div>
-                </button>
-                <Link
-                  to="/chat"
-                  className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-xs text-zinc-700 hover:bg-zinc-100 text-left"
-                >
-                  <MessageSquare className="size-4 text-emerald-600" />
-                  <div>
-                    <div className="font-medium">AI Chat</div>
-                    <div className="text-[10px] text-zinc-400">Conversational AI & Code</div>
-                  </div>
-                </Link>
-                <Link
-                  to="/research"
-                  className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-xs text-zinc-700 hover:bg-zinc-100 text-left"
-                >
-                  <Telescope className="size-4 text-purple-600" />
-                  <div>
-                    <div className="font-medium">Deep Research</div>
-                    <div className="text-[10px] text-zinc-400">In-depth web papers</div>
-                  </div>
-                </Link>
-                <Link
-                  to="/presentations"
-                  className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-xs text-zinc-700 hover:bg-zinc-100 text-left"
-                >
-                  <Presentation className="size-4 text-amber-600" />
-                  <div>
-                    <div className="font-medium">Presentations</div>
-                    <div className="text-[10px] text-zinc-400">Interactive slide decks</div>
-                  </div>
-                </Link>
-                <Link
-                  to="/agent"
-                  className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-xs text-zinc-700 hover:bg-zinc-100 text-left"
-                >
-                  <Bot className="size-4 text-sky-600" />
-                  <div>
-                    <div className="font-medium">AI Coworker</div>
-                    <div className="text-[10px] text-zinc-400">Multi-threaded agent</div>
-                  </div>
-                </Link>
-                <Link
-                  to="/billing"
-                  className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-xs text-zinc-700 hover:bg-zinc-100 text-left"
-                >
-                  <CreditCard className="size-4 text-emerald-600" />
-                  <div>
-                    <div className="font-medium">Billing & Subscriptions</div>
-                    <div className="text-[10px] text-zinc-400">Razorpay plans (₹59 - ₹599)</div>
-                  </div>
-                </Link>
-              </div>
-            </div>
-          </div>
+        {/* Top Bar: [ X ]   [ Project Name v ]   [ > ] with white background and clean pills */}
+        <header className="flex h-14 shrink-0 items-center justify-between px-4 sm:px-6 bg-white z-30 border-b border-zinc-200">
+          {/* Left: Close / Back button */}
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/" })}
+            className="flex size-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-700 hover:bg-zinc-200 transition cursor-pointer"
+            title="Back to home"
+          >
+            <X className="size-4" />
+          </button>
 
-          {/* Center: [ Back ]   [ User Product Name v ]   [ Publish (ONLY IN PREVIEWS) ] */}
-          <div className="relative min-w-0 flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2">
-            {/* Side of user product name: Back option to return to No-Code Platform home page */}
-            <button
-              type="button"
-              onClick={reset}
-              aria-label="Back to No-Code Platform"
-              title="Back to No-Code Platform page (return to main studio & shift apps)"
-              className="flex items-center gap-1.5 rounded-full bg-white border border-black/10 px-3 sm:px-3.5 py-2 text-xs font-semibold text-zinc-800 shadow-2xs hover:bg-zinc-100 hover:text-black active:scale-95 transition cursor-pointer shrink-0"
-            >
-              <ArrowLeft className="size-3.5 sm:size-4" />
-              <span className="hidden xs:inline">Back</span>
-            </button>
+          {/* Center: Project Name Dropdown Pill */}
+          <button
+            type="button"
+            onClick={() => setProjectMenuOpen(true)}
+            className="flex items-center gap-1.5 rounded-full bg-zinc-100 px-4 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-zinc-200 transition cursor-pointer"
+          >
+            <span className="truncate max-w-[200px]">{built.name}</span>
+            <ChevronDown className="size-3.5 text-zinc-500" />
+          </button>
 
-            {/* User Product Name Pill Dropdown */}
-            <button
-              type="button"
-              onClick={() => setProjectMenuOpen((v) => !v)}
-              className="flex items-center gap-2 rounded-full bg-white border border-black/8 px-3.5 sm:px-4 py-2 sm:py-2.5 shadow-2xs hover:bg-zinc-50 active:scale-[0.99] transition max-w-[150px] xs:max-w-[200px] sm:max-w-xs cursor-pointer min-w-0"
-            >
-              <span className="truncate text-xs sm:text-sm font-semibold text-zinc-900">
-                {built.name}
-              </span>
-              <ChevronDown className="size-3.5 sm:size-4 shrink-0 text-zinc-500" />
-            </button>
-
-            {/* Side of user product name: Publish option ONLY shown when in Previews slide */}
-            {activeSlide === "preview" && (
-              <button
-                type="button"
-                onClick={openPublishModal}
-                className="flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 sm:px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 active:scale-95 transition cursor-pointer shrink-0 animate-in fade-in zoom-in-95"
-                title="Publish live app"
-              >
-                <Rocket className="size-3.5" />
-                <span>Publish</span>
-              </button>
-            )}
-          </div>
-
-          {/* Right: History button + Slide switcher (Editor / Preview) */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setShowHistory((v) => !v)}
-              aria-label="Project History"
-              title="Open History"
-              className="flex size-9 sm:size-10 shrink-0 items-center justify-center rounded-full bg-white border border-black/8 text-zinc-800 shadow-2xs hover:bg-zinc-50 active:scale-95 transition cursor-pointer"
-            >
-              <History className="size-4 stroke-[1.75]" />
-            </button>
-
-            {activeSlide === "preview" ? (
-              <button
-                type="button"
-                onClick={() => goToSlide("chat")}
-                className="flex items-center gap-1.5 rounded-full bg-white border border-black/8 px-3 py-2 text-xs font-semibold text-zinc-800 shadow-2xs hover:bg-zinc-50 active:scale-95 transition cursor-pointer"
-                title="Back to Chat & Building"
-              >
-                <ChevronLeft className="size-4" />
-                <span className="hidden sm:inline">Editor</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => goToSlide("preview")}
-                className="flex items-center gap-1.5 rounded-full bg-zinc-900 px-3.5 sm:px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-zinc-800 active:scale-95 transition cursor-pointer"
-                title="Go to Live Preview (Publish option is available here)"
-              >
-                <Eye className="size-3.5" />
-                <span>Preview</span>
-                <ChevronRight className="size-3.5" />
-              </button>
-            )}
-          </div>
+          {/* Right: Next / Forward button */}
+          <button
+            type="button"
+            onClick={() => goToSlide(slideIndex === 0 ? "preview" : "chat")}
+            className="flex size-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-700 hover:bg-zinc-200 transition cursor-pointer"
+            title="Next slide"
+          >
+            <ChevronRight className="size-4" />
+          </button>
         </header>
 
         {/* History Modal / Drawer inside Built Workspace */}
@@ -2677,8 +2743,8 @@ function BuildPage() {
                   </div>
                 )}
 
-                {/* Rounded White Composer Box ("Send follow-up...") */}
-                <div className="rounded-[28px] bg-white border border-black/10 p-3 shadow-xs">
+                {/* Compact Shorter Composer Box matching screenshot ("Queue follow-up...") */}
+                <div className="rounded-[24px] bg-white border border-zinc-200 p-2 shadow-sm">
                   <textarea
                     value={upgrade}
                     onChange={(e) => setUpgrade(e.target.value)}
@@ -2690,38 +2756,38 @@ function BuildPage() {
                         }
                       }
                     }}
-                    rows={2}
-                    placeholder="Send follow-up..."
-                    className="w-full resize-none bg-transparent px-1.5 py-1 text-[16px] text-zinc-900 placeholder:text-zinc-400 outline-none"
+                    rows={1}
+                    placeholder="Queue follow-up..."
+                    className="w-full resize-none bg-transparent px-1.5 py-0.5 text-[14px] text-zinc-900 placeholder:text-zinc-400 outline-none"
                   />
 
-                  <div className="mt-2 flex items-center justify-between">
+                  <div className="mt-1 flex items-center justify-between">
                     {/* Left: Plus (+) Button for Uploading Images & Folder */}
                     <button
                       type="button"
                       onClick={() => setMenuOpen((v) => !v)}
                       aria-label="Upload images or folder"
                       title="Upload images, folder, or connect tools"
-                      className="flex size-10 items-center justify-center rounded-full border border-black/10 bg-zinc-50/70 text-zinc-800 hover:bg-zinc-100 active:scale-95 transition"
+                      className="flex size-8 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 active:scale-95 transition"
                     >
-                      <Plus className="size-5 stroke-[1.75]" />
+                      <Plus className="size-4 stroke-[1.75]" />
                     </button>
 
                     {/* Right: [ Build v ]  [ Mic ]  [ Stop / Send ] */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <div className="relative">
                         <button
                           type="button"
                           onClick={() => setBuildModeMenuOpen((v) => !v)}
-                          className="flex items-center gap-1.5 rounded-full border border-black/10 bg-zinc-50/70 px-4 py-2 text-[14px] font-medium text-zinc-900 hover:bg-zinc-100 transition"
+                          className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-medium text-zinc-900 hover:bg-zinc-100 transition"
                         >
                           <span>{buildMode === "build" ? "Build" : "Chat"}</span>
-                          <ChevronDown className="size-4 text-zinc-500" />
+                          <ChevronDown className="size-3.5 text-zinc-500" />
                         </button>
                         {buildModeMenuOpen && (
                           <>
                             <div className="fixed inset-0 z-40" onClick={() => setBuildModeMenuOpen(false)} />
-                            <div className="absolute right-0 bottom-12 z-50 w-40 rounded-2xl bg-white p-1.5 shadow-xl border border-black/10 text-xs space-y-1">
+                            <div className="absolute right-0 bottom-10 z-50 w-36 rounded-2xl bg-white p-1.5 shadow-xl border border-zinc-200 text-xs space-y-1">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -2729,12 +2795,12 @@ function BuildPage() {
                                   setBuildModeMenuOpen(false);
                                 }}
                                 className={cn(
-                                  "flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium",
+                                  "flex w-full items-center justify-between rounded-xl px-3 py-1.5 font-medium",
                                   buildMode === "build" ? "bg-zinc-100 text-zinc-900" : "text-zinc-600 hover:bg-zinc-50",
                                 )}
                               >
                                 <span>Build</span>
-                                {buildMode === "build" && <Check className="size-3.5" />}
+                                {buildMode === "build" && <Check className="size-3.5 text-zinc-900" />}
                               </button>
                               <button
                                 type="button"
@@ -2743,12 +2809,12 @@ function BuildPage() {
                                   setBuildModeMenuOpen(false);
                                 }}
                                 className={cn(
-                                  "flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium",
+                                  "flex w-full items-center justify-between rounded-xl px-3 py-1.5 font-medium",
                                   buildMode === "chat" ? "bg-zinc-100 text-zinc-900" : "text-zinc-600 hover:bg-zinc-50",
                                 )}
                               >
                                 <span>Chat</span>
-                                {buildMode === "chat" && <Check className="size-3.5" />}
+                                {buildMode === "chat" && <Check className="size-3.5 text-zinc-900" />}
                               </button>
                             </div>
                           </>
@@ -2760,13 +2826,13 @@ function BuildPage() {
                         onClick={toggle}
                         aria-label="Voice input"
                         className={cn(
-                          "flex size-10 items-center justify-center rounded-full border border-black/10 transition",
+                          "flex size-8 items-center justify-center rounded-full border transition",
                           listening
                             ? "bg-red-500 text-white border-red-500 animate-pulse"
-                            : "bg-zinc-50/70 text-zinc-800 hover:bg-zinc-100",
+                            : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100",
                         )}
                       >
-                        {listening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+                        {listening ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
                       </button>
 
                       {isBuilding ? (
@@ -2779,9 +2845,9 @@ function BuildPage() {
                           }}
                           aria-label="Stop build"
                           title="Stop active build"
-                          className="flex size-10 items-center justify-center rounded-full border border-black/10 bg-zinc-100 text-zinc-900 hover:bg-zinc-200 active:scale-95 transition"
+                          className="flex size-8 items-center justify-center rounded-full border border-zinc-200 bg-zinc-100 text-zinc-900 hover:bg-zinc-200 active:scale-95 transition"
                         >
-                          <Square className="size-4 fill-zinc-900 text-zinc-900 rounded-[2px]" />
+                          <Square className="size-3.5 fill-zinc-900 text-zinc-900 rounded-[2px]" />
                         </button>
                       ) : (
                         <button
@@ -2789,9 +2855,9 @@ function BuildPage() {
                           onClick={() => upgrade.trim() && triggerUpgrade(upgrade)}
                           disabled={!upgrade.trim()}
                           aria-label="Send follow-up"
-                          className="flex size-10 items-center justify-center rounded-full border border-black/10 bg-zinc-900 text-white disabled:bg-zinc-100 disabled:text-zinc-400 active:scale-95 transition"
+                          className="flex size-8 items-center justify-center rounded-full border border-zinc-200 bg-zinc-900 text-white disabled:bg-zinc-100 disabled:text-zinc-400 active:scale-95 transition"
                         >
-                          <Send className="size-4" />
+                          <Send className="size-3.5" />
                         </button>
                       )}
                     </div>
@@ -2801,154 +2867,85 @@ function BuildPage() {
             </div>
           </div>
 
-          {/* ==================== SLIDE 2 ("SITE TWO"): PROJECT REVIEW, CODE & PUBLISH ==================== */}
-          <div className="flex h-full w-full shrink-0 snap-center flex-col overflow-y-auto bg-[#f7f7f6] px-4 pb-8">
-            <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col space-y-4 pt-1">
-              {/* Top Review & Publish Controls Card */}
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-white border border-black/8 p-2.5 shadow-2xs">
-                <div className="flex items-center gap-1 rounded-xl bg-zinc-100 p-1">
-                  <button
-                    type="button"
-                    onClick={() => setTab("preview")}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-medium transition whitespace-nowrap",
-                      tab === "preview" ? "bg-white text-zinc-900 shadow-2xs" : "text-zinc-600 hover:text-zinc-900",
-                    )}
-                  >
-                    <MonitorPlay className="size-3.5" /> Live Preview
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTab("code")}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-medium transition whitespace-nowrap",
-                      tab === "code" ? "bg-white text-zinc-900 shadow-2xs" : "text-zinc-600 hover:text-zinc-900",
-                    )}
-                  >
-                    <Code2 className="size-3.5" /> Code ({built.files.length})
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => shareApp("more", built)}
-                    className="flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-3.5 py-1.5 text-xs font-medium text-zinc-800 hover:bg-zinc-50 transition"
-                  >
-                    <Share2 className="size-3.5" /> Share
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openPublishModal}
-                    className="flex items-center gap-1.5 rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-zinc-800 transition"
-                  >
-                    <Rocket className="size-3.5" /> Publish
-                  </button>
-                </div>
-              </div>
-
-              {/* Main Content Area: Live Preview or Code Explorer */}
-              {tab === "preview" ? (
-                <div className="flex flex-1 flex-col rounded-3xl border border-black/10 bg-white overflow-hidden shadow-xs min-h-[68vh]">
-                  <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-2.5 bg-zinc-50/70">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Globe className="size-3.5 text-zinc-400 shrink-0" />
-                      <span className="truncate text-xs text-zinc-500 font-mono">
-                        {typeof window !== "undefined" ? `${window.location.origin}/p/${built.name.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "")}` : `https://myaipro.app/p/${built.name.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "")}`}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const slug = await persistPublishedApp(built);
-                        navigate({ to: "/p/$appId", params: { appId: slug } });
-                      }}
-                      className="flex items-center gap-1 text-xs font-medium text-zinc-700 hover:text-zinc-950 shrink-0"
-                    >
-                      <ExternalLink className="size-3.5" /> Open Live View
-                    </button>
-                  </div>
-
-                  {built.preview_html ? (
-                    <iframe
-                      title="App preview"
-                      srcDoc={
-                        built.preview_html.includes("<html") || built.preview_html.includes("<!DOCTYPE")
-                          ? built.preview_html
-                          : `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><script src="https://cdn.tailwindcss.com"></script></head><body class="bg-slate-950 text-white p-6 font-sans">${built.preview_html}</body></html>`
-                      }
-                      sandbox="allow-scripts allow-forms allow-same-origin allow-modals"
-                      className="w-full flex-1 min-h-[62vh] bg-white"
-                    />
-                  ) : (
-                    <div className="flex flex-1 flex-col items-center justify-center p-8 text-center space-y-3">
-                      <Loader2 className="size-7 animate-spin text-zinc-500" />
-                      <p className="text-sm font-medium text-zinc-800">
-                        Building live interactive preview for {built.name}…
-                      </p>
-                      <p className="text-xs text-zinc-500 max-w-xs">
-                        {progress[0] || "Writing components and wiring preview state…"}
-                      </p>
-                    </div>
-                  )}
-                </div>
+          {/* ==================== SLIDE 2 ("SITE TWO"): FULL-SCREEN USER PROJECT & BOTTOM FLOATING CONTROLS ==================== */}
+          <div className="relative flex h-full w-full shrink-0 snap-center flex-col overflow-hidden bg-white">
+            {/* Full-Screen Project Canvas */}
+            <div className="relative flex-1 w-full h-full bg-white overflow-hidden">
+              {built.preview_html ? (
+                <iframe
+                  title="App preview"
+                  srcDoc={
+                    built.preview_html.includes("<html") || built.preview_html.includes("<!DOCTYPE")
+                      ? built.preview_html
+                      : `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><script src="https://cdn.tailwindcss.com"></script></head><body class="bg-slate-950 text-white p-6 font-sans">${built.preview_html}</body></html>`
+                  }
+                  sandbox="allow-scripts allow-forms allow-same-origin allow-modals"
+                  className="size-full border-0 bg-white"
+                />
               ) : (
-                <div className="flex flex-1 flex-col space-y-3">
-                  {hasLocalEdits && (
-                    <div className="flex items-center justify-between bg-amber-50 border border-amber-200 px-4 py-2.5 rounded-2xl text-amber-900 shadow-sm animate-in fade-in">
-                      <div className="flex items-center gap-2">
-                        <AlertCircle className="size-4 text-amber-600 animate-pulse" />
-                        <span className="text-xs font-semibold">You have unsaved local code edits.</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setHistory((prev) => {
-                            const updated = prev.map((h) =>
-                              h.id === currentProjectId || (built && h.name === built.name)
-                                ? { ...h, files: built?.files || [], totalFiles: built?.files.length || 0, completedFiles: built?.files.length || 0 }
-                                : h,
-                            );
-                            saveUserBuilds(updated);
-                            return updated;
-                          });
-                          setHasLocalEdits(false);
-                          toast.success("Successfully updated and saved changes to server!");
-                        }}
-                        className="flex items-center gap-1.5 rounded-full bg-amber-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-amber-700 transition cursor-pointer shadow-xs"
-                      >
-                        <Check className="size-3.5" />
-                        <span>Update</span>
-                      </button>
-                    </div>
-                  )}
-                  <div className="flex flex-1 flex-col rounded-3xl border border-black/10 bg-white overflow-hidden shadow-xs min-h-[68vh]">
-                    <CodeExplorer
-                      files={built.files}
-                      appName={built.name}
-                      onUpdateFiles={(updatedFiles) => {
-                        setHasLocalEdits(true);
-                        setBuilt((prev) => (prev ? { ...prev, files: updatedFiles } : prev));
-                        setHistory((prev) => {
-                          const updated = prev.map((h) =>
-                            h.id === currentProjectId || h.name === built.name
-                              ? { ...h, files: updatedFiles, totalFiles: updatedFiles.length, completedFiles: updatedFiles.length }
-                              : h,
-                          );
-                          saveUserBuilds(updated);
-                          return updated;
-                        });
-                      }}
-                    />
-                  </div>
+                <div className="flex size-full flex-col items-center justify-center p-8 text-center bg-zinc-950 text-white space-y-4">
+                  <Loader2 className="size-8 animate-spin text-amber-400" />
+                  <p className="text-base font-bold text-white">
+                    Synthesizing full-screen project: {built.name}…
+                  </p>
+                  <p className="text-xs text-zinc-400 max-w-sm">
+                    {progress[0] || "Compiling components and assembling preview state…"}
+                  </p>
                 </div>
               )}
+            </div>
+
+            {/* FLOATING BOTTOM CONTROL BAR (Chat, Open in Live Web, Menu) */}
+            <div className="fixed bottom-6 inset-x-0 z-40 mx-auto flex w-fit max-w-[92vw] items-center gap-2.5 rounded-full bg-zinc-950/90 border border-white/20 px-4 py-2.5 shadow-2xl backdrop-blur-2xl text-white">
+              {/* Back to Chat */}
+              <button
+                type="button"
+                onClick={() => goToSlide("chat")}
+                className="flex items-center gap-1.5 rounded-full bg-zinc-800/90 hover:bg-zinc-700 px-3.5 py-1.5 text-xs font-semibold text-zinc-100 transition active:scale-95 cursor-pointer shrink-0"
+                title="Return to Chat"
+              >
+                <ChevronLeft className="size-4" />
+                <span>Chat</span>
+              </button>
+
+              {/* Open in Live Web (Opens in external window/tab genuinely) */}
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const slug = await persistPublishedApp(built);
+                    const liveUrl = `${window.location.origin}/p/${slug}`;
+                    window.open(liveUrl, "_blank", "noopener,noreferrer");
+                    toast.success("Opening in live web!");
+                  } catch {
+                    const slug = built.name.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "") || "my-app";
+                    window.open(`${window.location.origin}/p/${slug}`, "_blank", "noopener,noreferrer");
+                  }
+                }}
+                className="flex items-center gap-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 px-3.5 py-1.5 text-xs font-semibold text-white transition active:scale-95 cursor-pointer shrink-0"
+                title="Open directly in live web browser"
+              >
+                <Globe className="size-3.5 text-emerald-400" />
+                <span>Open in Live Web</span>
+                <ExternalLink className="size-3 text-zinc-400" />
+              </button>
+
+              {/* More / Project Settings */}
+              <button
+                type="button"
+                onClick={() => setProjectMenuOpen(true)}
+                className="flex size-8 items-center justify-center rounded-full bg-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-700 transition active:scale-95 cursor-pointer shrink-0"
+                title="Project Menu & Code Explorer"
+              >
+                <MoreHorizontal className="size-3.5" />
+              </button>
             </div>
           </div>
         </div>
 
         {plusMenuOverlay}
         {githubModalOverlay}
+        {toolApiKeyModalOverlay}
 
         {/* Publish & Share Hub Modal */}
         {publishOpen && (
@@ -3474,351 +3471,276 @@ function BuildPage() {
     );
   }
 
-  /* ---------- Home ---------- */
+  /* ---------- Home (No-Code Platform Exact UI matching screenshot 1) ---------- */
   return (
-    <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-[#f7f7f6] font-sans text-zinc-900 select-none">
+    <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-[#070609] font-sans text-white select-none">
       {projectControlCenterModal}
       {githubModalOverlay}
       {sharedFileInputs}
       {plusMenuOverlay}
 
+      {/* Cosmic background ambient glowing curves matching screenshot 1 */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+        <div className="absolute -top-40 -left-40 size-[500px] rounded-full bg-blue-600/15 blur-[140px] animate-pulse" />
+        <div className="absolute bottom-0 right-0 size-[550px] rounded-full bg-pink-600/20 blur-[160px] animate-pulse" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(30,58,138,0.25)_0%,rgba(7,6,9,0.98)_75%)]" />
+      </div>
+
       {/* Top Header matching screenshot */}
-      <header className="relative z-25 flex h-16 shrink-0 items-center justify-between px-5 sm:px-8 bg-[#f7f7f6]">
-        {/* Left: My AI Brand */}
+      <header className="relative z-25 flex h-16 shrink-0 items-center justify-between px-5 sm:px-8 bg-transparent">
         <Link to="/build" className="flex items-center gap-2 hover:opacity-90 transition">
-          <span className="font-serif text-2xl font-bold tracking-tight text-zinc-900 leading-none">
-            My AI
+          <span className="font-serif text-2xl font-bold tracking-tight text-white leading-none">
+            My <span className="text-amber-400">AI</span>
           </span>
         </Link>
 
-        {/* Right: Settings gear icon button */}
+        {/* Top switchers: Research & Move between apps */}
+        <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-white/10 border border-white/15 p-1 backdrop-blur-md">
+          <Link
+            to="/voice"
+            className="rounded-full px-3.5 py-1.5 text-xs font-medium text-zinc-300 hover:text-white transition"
+          >
+            Voice
+          </Link>
+          <span className="rounded-full bg-amber-500 text-black px-4 py-1.5 text-xs font-bold shadow-xs">
+            No-Code
+          </span>
+          <Link
+            to="/research"
+            className="rounded-full px-3.5 py-1.5 text-xs font-medium text-zinc-300 hover:text-white transition"
+          >
+            Research
+          </Link>
+        </div>
+
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setShowHistory((v) => !v)}
-            className="flex size-10 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:text-zinc-950 transition active:scale-95 shadow-2xs"
+            className="flex size-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white hover:bg-white/20 transition active:scale-95 shadow-lg backdrop-blur-md"
             title="Project History"
-            aria-label="History"
           >
             <History className="size-4" />
           </button>
           <button
             type="button"
             onClick={() => setProjectMenuOpen(true)}
-            className="flex size-10 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:text-zinc-950 transition active:scale-95 shadow-2xs"
-            title="Settings & Control Center"
-            aria-label="Settings"
+            className="flex size-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white hover:bg-white/20 transition active:scale-95 shadow-lg backdrop-blur-md"
+            title="Settings & Tools"
           >
             <Settings className="size-4.5" />
           </button>
         </div>
       </header>
 
-      {/* Top Segmented Navigation Pills Switcher matching screenshot */}
-      <div className="relative z-20 flex justify-center px-4 pt-1 pb-3">
-        <div className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white/85 backdrop-blur-md p-1 shadow-xs">
-          <Link
-            to="/voice"
-            className="flex items-center gap-2 rounded-full px-4 py-2 text-xs font-medium text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100 transition"
-          >
-            <Mic className="size-3.5 text-zinc-500" />
-            <span>Voice Assistant</span>
-          </Link>
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-full bg-black px-5 py-2 text-xs font-bold text-white shadow-xs cursor-default"
-          >
-            <LayoutGrid className="size-3.5" />
-            <span>No-code</span>
-          </button>
-          <Link
-            to="/research"
-            className="flex items-center gap-2 rounded-full px-4 py-2 text-xs font-medium text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100 transition"
-          >
-            <Telescope className="size-3.5 text-zinc-500" />
-            <span>Research</span>
-          </Link>
-        </div>
-      </div>
-
-      {/* Show upgrade prompt ONLY AFTER user is done with their credits */}
-      {!activeSub && credits <= 0 && (
-        <div className="mx-auto my-1.5 w-full max-w-xl rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-2.5 flex items-center justify-between gap-3 text-xs shadow-xs animate-in fade-in shrink-0 z-15">
-          <div className="flex items-center gap-2 text-red-900 font-medium">
-            <Sparkles className="size-4 shrink-0 text-red-600 animate-pulse" />
-            <span>Credits Finished (0 remaining) — <strong>Please upgrade for pro.</strong></span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowUpgradeModal(true)}
-            className="rounded-full bg-red-600 px-3.5 py-1.5 font-bold text-white hover:bg-red-700 transition shrink-0 shadow-xs cursor-pointer"
-          >
-            Upgrade for Pro (₹59+)
-          </button>
-        </div>
-      )}
-      {!activeSub && credits > 0 && (
-        <div className="mx-auto my-0.5 flex items-center justify-center gap-2 text-[11px] text-zinc-500">
-          <span>{credits} free credits remaining</span>
-        </div>
-      )}
-
       {/* Main Content Area */}
-      <div className="relative z-10 flex-1 overflow-y-auto px-5 flex flex-col">
-        {showHistory ? (
-          <div className="mx-auto w-full max-w-lg py-6 my-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
-              <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-900">Project History</h2>
+      <div className="relative z-10 flex-1 overflow-y-auto px-5 flex flex-col items-center justify-center">
+        {plan.isPending ? (
+          /* ==================== SCREENSHOT 2 LOADING ANIMATION STATE ==================== */
+          <div className="flex flex-col items-center justify-center text-center space-y-8 animate-in fade-in duration-300">
+            {/* Glowing Orb / Star with particle rings */}
+            <div className="relative flex items-center justify-center size-32 sm:size-40 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-pink-500 p-1 shadow-[0_0_60px_rgba(79,70,229,0.7)] animate-pulse">
+              <div className="absolute inset-0 rounded-full border border-white/30 animate-ping opacity-30" />
+              <div className="absolute -inset-4 rounded-full border border-pink-500/30 animate-spin" style={{ animationDuration: '8s' }} />
+              <div className="flex size-full items-center justify-center rounded-full bg-[#070609]">
+                <Sparkles className="size-16 fill-white text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.9)] animate-bounce" />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h2 className="font-serif text-3xl sm:text-4xl text-white font-normal tracking-tight">
+                My AI is working on your <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-pink-400 bg-clip-text text-transparent font-bold">project.</span>
+              </h2>
+              {/* Three animated indicator dots */}
+              <div className="flex items-center justify-center gap-2 pt-2">
+                <span className="size-3 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="size-3 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="size-3 rounded-full bg-pink-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            </div>
+          </div>
+        ) : showHistory ? (
+          <div className="mx-auto w-full max-w-lg py-6 my-auto rounded-3xl bg-zinc-900/90 border border-white/15 p-6 backdrop-blur-xl">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-white">Project History</h2>
               <button
                 type="button"
                 onClick={() => setShowHistory(false)}
-                className="text-zinc-500 hover:text-zinc-900"
+                className="text-zinc-400 hover:text-white"
               >
                 <X className="size-4" />
               </button>
             </div>
             {history.length === 0 ? (
-              <p className="py-8 text-center text-sm text-zinc-500">No builds yet. Start your first idea below!</p>
+              <p className="py-8 text-center text-sm text-zinc-400">No builds yet. Start your first idea below!</p>
             ) : (
               <ul className="mt-4 space-y-2.5 max-h-[55vh] overflow-y-auto pr-1">
-                {history.map((h) => {
-                  const isItemBuilding = h.status === "planning" || h.status === "writing";
-                  return (
-                    <li key={h.id}>
-                      <div className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 hover:border-zinc-300 hover:shadow-xs transition group">
-                        <button
-                          type="button"
-                          onClick={() => openHistoryProject(h)}
-                          className="flex-1 text-left min-w-0"
-                        >
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-semibold text-zinc-900 truncate">{h.name}</p>
-                            <span className="text-xs text-zinc-500 shrink-0">
-                              · {isItemBuilding ? "Building…" : `${h.files?.length || 0} modules`}
-                            </span>
-                          </div>
-                          <p className="truncate text-xs text-zinc-500 mt-0.5">{h.idea}</p>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeleteProject(h, e)}
-                          className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition"
-                          title="Delete project from history"
-                          aria-label={`Delete project ${h.name}`}
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
-                      </div>
-                    </li>
-                  );
-                })}
+                {history.map((h) => (
+                  <li key={h.id}>
+                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 hover:bg-black/60 transition group">
+                      <button
+                        type="button"
+                        onClick={() => openHistoryProject(h)}
+                        className="flex-1 text-left min-w-0"
+                      >
+                        <p className="text-sm font-semibold text-white truncate">{h.name}</p>
+                        <p className="truncate text-xs text-zinc-400 mt-0.5">{h.idea}</p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteProject(h, e)}
+                        className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
               </ul>
             )}
           </div>
         ) : (
-          <div className="my-auto flex flex-col items-center justify-center text-center max-w-xl mx-auto py-6">
-            {/* Orange-red icon badge with sparkles / plus matching screenshot */}
-            <div className="relative mb-4 flex items-center justify-center size-16 sm:size-20 rounded-2xl sm:rounded-3xl bg-[#f9572a] text-white shadow-[0_10px_30px_rgba(249,87,42,0.35)] transition-transform duration-500 hover:scale-105">
-              <Sparkles className="size-8 sm:size-10 fill-white text-white" />
+          /* ==================== SCREENSHOT 1 LANDING UI ==================== */
+          <div className="my-auto flex flex-col items-center justify-center text-center max-w-2xl mx-auto py-6 space-y-6">
+            {/* Top Connected Tools Pill matching screenshot 1 */}
+            <div className="inline-flex items-center gap-3 rounded-full border border-white/20 bg-zinc-900/85 px-4 py-2 shadow-[0_0_30px_rgba(79,70,229,0.3)] backdrop-blur-xl">
+              <div className="flex items-center -space-x-1.5">
+                <div className="flex size-6 items-center justify-center rounded-full bg-red-500 text-white font-bold text-[10px]">M</div>
+                <div className="flex size-6 items-center justify-center rounded-full bg-emerald-500 text-white font-bold text-[10px]">S</div>
+                <div className="flex size-6 items-center justify-center rounded-full bg-blue-500 text-white font-bold text-[10px]">G</div>
+                <div className="flex size-6 items-center justify-center rounded-full bg-zinc-800 text-white font-bold text-[10px]">N</div>
+              </div>
+              <div className="h-3 w-px bg-white/20" />
+              <button
+                type="button"
+                onClick={() => setMenuOpen(true)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-zinc-200 hover:text-white transition cursor-pointer"
+              >
+                <span>Connect all your tools</span>
+                <span className="text-amber-400">→</span>
+              </button>
             </div>
 
-            {/* Subtitle: Hi there */}
-            <p className="text-xs sm:text-sm font-medium text-zinc-500 mb-1">
-              Hi {name || "there"}
-            </p>
-
-            {/* Hero Heading in elegant serif font matching screenshot */}
-            <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl text-zinc-900 font-normal tracking-tight text-center leading-[1.12]">
-              Start building your idea
+            {/* Hero Heading: What should we build, Lucky? */}
+            <h1 className="font-serif text-4xl sm:text-6xl md:text-7xl font-normal tracking-tight text-white text-center leading-[1.1]">
+              What should we build, <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-pink-500 bg-clip-text text-transparent font-bold">Lucky?</span>
             </h1>
 
-            {/* Subtitle description */}
-            <p className="mx-auto mt-3.5 max-w-sm sm:max-w-md text-center text-xs sm:text-sm text-zinc-600 leading-relaxed font-normal">
-              Describe it in a sentence. I'll ask questions, request any API keys, integrate GitHub code, and write production software.
-            </p>
+            {/* Glassy Input Box with Glowing Neon Border matching screenshot 1 */}
+            <div className="w-full max-w-xl rounded-3xl border border-transparent bg-gradient-to-r from-blue-500/50 via-purple-500/50 to-pink-500/50 p-0.5 shadow-[0_0_50px_rgba(168,85,247,0.3)]">
+              <div className="flex flex-col rounded-[22px] bg-[#0c0910] p-4 sm:p-5 backdrop-blur-2xl space-y-3 text-left">
+                <textarea
+                  value={idea}
+                  onChange={(e) => setIdea(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      if (idea.trim() && !plan.isPending) {
+                        const toBuild = idea.trim();
+                        setIdea("");
+                        plan.mutate(toBuild);
+                      }
+                    }
+                  }}
+                  rows={2}
+                  placeholder="Describe what you want to create..."
+                  className="w-full resize-none bg-transparent text-sm sm:text-base text-white placeholder-zinc-500 outline-none font-sans leading-relaxed"
+                />
+
+                <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                  {/* Left Plus Button */}
+                  <button
+                    type="button"
+                    onClick={() => setMenuOpen(true)}
+                    className="flex size-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer shadow-md"
+                    title="Attach images, folder or connect tools"
+                  >
+                    <Plus className="size-5" />
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    {/* Build Pill Selector */}
+                    <div className="flex items-center gap-1 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 px-3.5 py-1.5 text-xs font-semibold text-white transition cursor-pointer">
+                      <span>Build</span>
+                      <ChevronDown className="size-3 text-zinc-400" />
+                    </div>
+
+                    {/* Mic Button */}
+                    <button
+                      type="button"
+                      onClick={toggle}
+                      className={cn(
+                        "flex size-10 items-center justify-center rounded-full transition cursor-pointer shadow-md",
+                        listening ? "bg-red-500 text-white animate-pulse" : "bg-white/10 hover:bg-white/20 text-white",
+                      )}
+                      title="Voice input"
+                    >
+                      {listening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* Attached Context Preview Badges */}
-            <div className="mt-5 flex flex-wrap justify-center gap-2">
+            <div className="flex flex-wrap justify-center gap-2">
               {importedRepo && (
-                <div className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white text-zinc-800 px-3.5 py-1 text-xs shadow-2xs">
-                  {importedRepo.isPrivate ? (
-                    <Lock className="size-3 text-zinc-600" />
-                  ) : (
-                    <Github className="size-3.5 text-zinc-700" />
-                  )}
+                <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-zinc-900 text-zinc-200 px-3.5 py-1 text-xs">
+                  <Github className="size-3.5 text-amber-400" />
                   <span className="font-semibold">{importedRepo.owner}/{importedRepo.repo}</span>
-                  <button
-                    type="button"
-                    onClick={() => setImportedRepo(null)}
-                    className="ml-1 text-zinc-400 hover:text-red-500"
-                  >
+                  <button type="button" onClick={() => setImportedRepo(null)} className="ml-1 text-zinc-400 hover:text-red-400">
                     <X className="size-3" />
                   </button>
                 </div>
               )}
-
               {folderName && (
-                <div className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white text-zinc-800 px-3.5 py-1 text-xs shadow-2xs">
-                  <Folder className="size-3.5 text-blue-600" />
+                <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-zinc-900 text-zinc-200 px-3.5 py-1 text-xs">
+                  <Folder className="size-3.5 text-blue-400" />
                   <span>Folder: <strong>{folderName}</strong></span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFolderName(null);
-                      setFolderContext(null);
-                    }}
-                    className="ml-1 text-zinc-400 hover:text-red-500"
-                  >
-                    <X className="size-3" />
-                  </button>
-                </div>
-              )}
-
-              {attachedImages.length > 0 && (
-                <div className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white text-zinc-800 px-3.5 py-1 text-xs shadow-2xs">
-                  <ImageIcon className="size-3.5 text-emerald-600" />
-                  <span>{attachedImages.length} image(s)</span>
-                  <button
-                    type="button"
-                    onClick={() => setAttachedImages([])}
-                    className="ml-1 text-zinc-400 hover:text-red-500"
-                  >
+                  <button type="button" onClick={() => { setFolderName(null); setFolderContext(null); }} className="ml-1 text-zinc-400 hover:text-red-400">
                     <X className="size-3" />
                   </button>
                 </div>
               )}
             </div>
-
-            {attachedImages.length > 0 && (
-              <div className="mt-3 flex justify-center gap-2">
-                {attachedImages.map((src, i) => (
-                  <div key={i} className="relative size-12 rounded-xl border border-zinc-200 overflow-hidden shadow-2xs">
-                    <img src={src} alt="Mockup" referrerPolicy="no-referrer" className="size-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => setAttachedImages((p) => p.filter((_, idx) => idx !== i))}
-                      className="absolute top-0.5 right-0.5 rounded-full bg-zinc-900/80 text-white p-0.5"
-                    >
-                      <X className="size-2.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
       </div>
 
-      {/* Model Picker Sheet */}
-      {modelOpen && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs" onClick={() => setModelOpen(false)} />
-          <div className="fixed inset-x-3 bottom-28 z-50 mx-auto max-w-md rounded-3xl border border-zinc-200 bg-white p-3 shadow-2xl">
-            <p className="px-3 py-2 text-[11px] uppercase tracking-widest text-zinc-500 font-bold">Choose a model</p>
-            {MODELS.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => {
-                  setModel(m.id);
-                  setModelOpen(false);
-                }}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-left transition",
-                  model === m.id ? "bg-zinc-100 text-zinc-900" : "hover:bg-zinc-50 text-zinc-600",
-                )}
-              >
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-zinc-900">{m.label}</p>
-                  <p className="text-[11px] text-zinc-500">{m.note}</p>
-                </div>
-                {model === m.id && <Check className="size-4 text-brand" />}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* Floating Prompt Input Bar matching screenshot */}
-      <footer className="relative z-20 px-4 pb-6 pt-2">
-        <div className="mx-auto flex w-full max-w-xl items-center gap-2 rounded-full border border-zinc-200 bg-white p-2 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
-          {/* Plus Option Button */}
+      {/* Screenshot 2 Bottom Floating Action Bar matching screenshot */}
+      <footer className="relative z-20 px-4 pb-6 pt-2 flex justify-center">
+        <div className="flex items-center gap-3 rounded-full bg-zinc-950/90 border border-white/15 px-5 py-3 shadow-2xl backdrop-blur-2xl text-white">
           <button
             type="button"
-            onClick={() => setMenuOpen((v) => !v)}
-            className="flex size-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-700 hover:bg-zinc-200 transition active:scale-95 shadow-2xs"
-            aria-label="Add tools, GitHub, folders, or images"
-            title="Upload images, folder, or import from GitHub"
+            onClick={() => reset()}
+            className="flex items-center gap-1.5 text-xs font-semibold text-zinc-300 hover:text-white transition cursor-pointer"
           >
-            <Plus className="size-5" />
+            <span>&lt; Chat</span>
           </button>
-
-          {/* Prompt Input */}
-          <textarea
-            value={idea}
-            onChange={(e) => setIdea(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                if (idea.trim() && !plan.isPending) {
-                  const toBuild = idea.trim();
-                  setIdea("");
-                  plan.mutate(toBuild);
-                }
-              }
-            }}
-            rows={1}
-            placeholder={
-              importedRepo
-                ? `Building on ${importedRepo.owner}/${importedRepo.repo}… describe features or changes`
-                : "Describe your idea... (or type / for commands)"
-            }
-            className="flex-1 resize-none bg-transparent px-2 py-2 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 font-normal leading-relaxed"
-            style={{ maxHeight: 120 }}
-          />
-
-          {/* Separator Line */}
-          <div className="h-6 w-px bg-zinc-200 shrink-0 mx-0.5" />
-
-          {/* Mic Button */}
+          <div className="h-4 w-px bg-white/15" />
           <button
             type="button"
             onClick={toggle}
-            className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-full transition active:scale-95",
-              listening ? "bg-red-500 text-white animate-pulse" : "text-zinc-500 hover:text-zinc-900",
-            )}
-            aria-label="Voice to text"
-            title="Voice input with high audio sensitivity"
+            className="flex size-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition cursor-pointer"
+            title="Voice input"
           >
-            {listening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+            <Mic className="size-3.5" />
           </button>
-
-          {/* Send Button */}
           <button
             type="button"
-            onClick={() => {
-              if ((idea.trim() || attachedImages.length > 0) && !plan.isPending) {
-                const toBuild =
-                  idea.trim() ||
-                  "Build an exact, pixel-accurate replica of the attached UI image";
-                setIdea("");
-                if (attachedImages.length > 0) {
-                  setScopingImages([...attachedImages]);
-                }
-                plan.mutate(toBuild);
-              }
-            }}
-            disabled={(!idea.trim() && attachedImages.length === 0) || plan.isPending}
-            className="flex size-10 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-white shadow-md hover:bg-black active:scale-95 transition disabled:opacity-40 disabled:hover:scale-100 disabled:shadow-none cursor-pointer"
-            aria-label="Start building"
-            title="Start scoping idea and asking questions"
+            onClick={() => setProjectMenuOpen(true)}
+            className="flex size-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition cursor-pointer"
+            title="More options"
           >
-            {plan.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Send className="size-4 -rotate-12 translate-x-px" />
-            )}
+            <MoreHorizontal className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={openPublishModal}
+            className="flex items-center gap-1.5 rounded-full bg-blue-600 hover:bg-blue-500 px-4 py-1.5 text-xs font-bold text-white shadow-lg transition cursor-pointer"
+          >
+            <span className="size-1.5 rounded-full bg-white animate-pulse" />
+            <span>Publish</span>
           </button>
         </div>
       </footer>

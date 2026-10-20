@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { askVoiceAssistant, transcribeAudio, type VoiceAssistantMessage } from "@/lib/voice.functions";
@@ -767,8 +767,8 @@ export function VoiceAssistantPage() {
   // 8. Toggle Mute Functionality
   // If user clicks mute, won't record. If unmuted, records voice and converts into text!
   const toggleMute = useCallback(() => {
-    if (!isRecording) {
-      startRecordingSession();
+    if (!isRecording || !mediaStreamRef.current) {
+      startRecordingSession(false);
       return;
     }
 
@@ -1074,7 +1074,20 @@ export function VoiceAssistantPage() {
       {/* Main Canvas Area */}
       <main className="relative z-10 flex-1 flex flex-col justify-end px-4 pb-2 overflow-hidden">
         {/* Soft Ambient Audio Waveform Aura in Center */}
-        <div className="my-auto flex flex-col items-center justify-center text-center">
+        <div className="my-auto flex flex-col items-center justify-center text-center overflow-y-auto max-h-[55vh] w-full max-w-lg mx-auto px-2">
+          {(!isRecording || !mediaStreamRef.current) && (
+            <div className="mb-4">
+              <button
+                type="button"
+                onClick={() => startRecordingSession(false)}
+                className="flex items-center gap-2 rounded-full bg-black text-white px-5 py-2.5 text-xs font-bold shadow-xl hover:bg-neutral-800 transition active:scale-95 animate-pulse cursor-pointer"
+              >
+                <Mic className="size-4 text-emerald-400" />
+                <span>Tap to Enable Microphone &amp; Start Speaking</span>
+              </button>
+            </div>
+          )}
+
           <div
             onClick={toggleMute}
             className="relative flex items-center justify-center cursor-pointer group"
@@ -1082,7 +1095,7 @@ export function VoiceAssistantPage() {
           >
             <div
               className={cn(
-                "size-44 sm:size-56 rounded-full transition-all duration-300 blur-3xl",
+                "size-36 sm:size-48 rounded-full transition-all duration-300 blur-3xl",
                 isRecording && !isMuted ? "bg-blue-400/25 scale-110" : "bg-neutral-200/50 scale-95",
                 state === "speaking" && "bg-brand/35 scale-125 animate-pulse",
                 state === "thinking" && "bg-purple-400/35 scale-110 animate-spin",
@@ -1095,6 +1108,80 @@ export function VoiceAssistantPage() {
               }}
             />
           </div>
+
+          {/* Interactive Messages & Autonomous Action Cards (Browser, Code, Questions, Spotify) */}
+          {messages.length > 0 && (
+            <div className="mt-4 w-full space-y-2.5 text-left">
+              {messages.slice(-2).map((msg) => (
+                <div
+                  key={msg.id}
+                  className={cn(
+                    "rounded-2xl p-3.5 text-xs shadow-md border transition-all animate-in fade-in",
+                    msg.role === "assistant"
+                      ? "bg-white/95 border-neutral-200 text-neutral-800"
+                      : "bg-neutral-900 text-white border-neutral-800 ml-auto max-w-[85%]",
+                  )}
+                >
+                  <p className="whitespace-pre-wrap leading-relaxed font-sans">{msg.content}</p>
+
+                  {/* Actions (Browser, Code, Spotify, Questions) */}
+                  {msg.actions && msg.actions.length > 0 && (
+                    <div className="mt-2.5 pt-2 border-t border-neutral-100 space-y-2">
+                      {msg.actions.map((act, actIdx) => (
+                        <div key={actIdx} className="space-y-1.5">
+                          {act.type === "code_execution" && act.codeSnippet && (
+                            <div className="rounded-xl bg-neutral-950 text-white p-2.5 border border-neutral-800 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="font-mono text-[11px] text-amber-400 font-bold">{act.title}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <Link
+                                    to="/build"
+                                    className="rounded-lg bg-neutral-800 hover:bg-neutral-700 px-2 py-0.5 text-[10px] text-amber-300 font-bold"
+                                  >
+                                    Visual Builder
+                                  </Link>
+                                </div>
+                              </div>
+                              <pre className="text-[10px] font-mono text-neutral-300 overflow-x-auto max-h-24 p-1.5 bg-black/60 rounded">
+                                <code>{act.codeSnippet.code.slice(0, 300)}...</code>
+                              </pre>
+                            </div>
+                          )}
+
+                          {act.type === "app_launcher" && (
+                            <a
+                              href={act.appUrl || act.appScheme || "#"}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-black text-white px-3 py-1.5 text-[11px] font-bold hover:bg-neutral-800 transition shadow-xs"
+                            >
+                              <ExternalLink className="size-3" />
+                              <span>{act.title}</span>
+                            </a>
+                          )}
+
+                          {act.suggestions && act.suggestions.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                              {act.suggestions.map((sug, sIdx) => (
+                                <button
+                                  key={sIdx}
+                                  type="button"
+                                  onClick={() => handleSend(sug)}
+                                  className="rounded-full bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 px-2.5 py-1 text-[10px] font-medium text-neutral-800 transition cursor-pointer"
+                                >
+                                  💬 {sug}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Floating Status Pill matching Screenshot ("Go ahead" / Live Transcript) */}

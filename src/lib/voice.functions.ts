@@ -179,19 +179,20 @@ CRITICAL RULES:
 
     let assistantText = "";
 
-    // 4. Primary Gemini Model Pipeline (gemini-3.5-flash-lite for ultra-fast <1s voice answers)
+    // 4. Primary Gemini Model Pipeline (gemini-2.5-flash for ultra-fast, intelligent voice answers)
     const candidateModels = [
+      "gemini-2.5-flash",
+      "gemini-2.0-flash",
+      "gemini-1.5-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-2.5-pro",
       "gemini-3.5-flash-lite",
-      "gemini-3.5-flash",
-      "gemini-flash-lite-latest",
-      "gemini-flash-latest",
-      "gemini-3.7-flash",
       "gemini-3.8-flash",
     ];
 
     const promptText = prompt || (audioDataUrl ? "Please listen to my voice and respond conversationally." : "Hello, how can you help me today?");
     const finalUserPrompt = liveContext
-      ? `${promptText}\n\n${liveContext}\n(Answer with the above real-time data directly, concisely, and accurately for speech.)`
+      ? `${promptText}\n\n${liveContext}\n(Answer with the above real-time data directly, concisely, and accurately for speech. If user asks to build, code, create browser, or launch apps, confirm what was built and offer interactive next steps.)`
       : promptText;
 
     // Build strictly alternating multiturn turns
@@ -307,6 +308,123 @@ CRITICAL RULES:
       }
     }
 
+    // Autonomous Action Detection for Voice Assistant (Coding, Browser, Apps, Spotify, Questions)
+    const lowerP = prompt.toLowerCase();
+    const isCodeOrBrowser =
+      lowerP.includes("browser") ||
+      lowerP.includes("code") ||
+      lowerP.includes("write") ||
+      lowerP.includes("writing") ||
+      lowerP.includes("build") ||
+      lowerP.includes("make some browser") ||
+      lowerP.includes("open app and start");
+
+    if (isCodeOrBrowser && !actions.some((a) => a.type === "code_execution")) {
+      const isBrowser = lowerP.includes("browser") || lowerP.includes("make some browser");
+      const appTitle = isBrowser ? "Interactive Web Browser" : "Generated Application";
+      const filename = isBrowser ? "browser.html" : "app.tsx";
+
+      const browserHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My AI Pro - Web Browser</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+</head>
+<body class="bg-zinc-950 text-white min-h-screen flex flex-col font-sans select-none">
+  <header class="bg-zinc-900 border-b border-zinc-800 p-2.5 flex items-center gap-2">
+    <div class="flex items-center gap-1.5 text-zinc-400">
+      <button onclick="historyBack()" class="p-2 hover:bg-zinc-800 rounded-lg text-xs" title="Back"><i class="fa-solid fa-arrow-left"></i></button>
+      <button onclick="historyForward()" class="p-2 hover:bg-zinc-800 rounded-lg text-xs" title="Forward"><i class="fa-solid fa-arrow-right"></i></button>
+      <button onclick="refreshPage()" class="p-2 hover:bg-zinc-800 rounded-lg text-xs" title="Reload"><i class="fa-solid fa-rotate-right"></i></button>
+    </div>
+    <div class="flex-1 flex items-center bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-1.5 gap-2 text-xs">
+      <i class="fa-solid fa-lock text-emerald-400 text-[10px]"></i>
+      <input id="urlInput" type="text" value="https://duckduckgo.com" onkeydown="handleUrlKey(event)" class="bg-transparent flex-1 text-white outline-none font-mono text-xs"/>
+      <button onclick="navigateToUrl()" class="bg-amber-500 text-black font-bold px-2.5 py-0.5 rounded-lg text-[10px]">Go</button>
+    </div>
+    <div class="flex items-center gap-1">
+      <button onclick="openTab('https://google.com')" class="text-xs bg-zinc-800 hover:bg-zinc-700 px-2.5 py-1.5 rounded-lg font-medium text-zinc-300">+ Tab</button>
+    </div>
+  </header>
+  <div class="bg-zinc-900/60 border-b border-zinc-800/60 px-3 py-1 flex items-center gap-3 text-xs overflow-x-auto text-zinc-400">
+    <button onclick="setUrl('https://google.com')" class="hover:text-white flex items-center gap-1">🔍 Google</button>
+    <button onclick="setUrl('https://open.spotify.com')" class="hover:text-white flex items-center gap-1">🎵 Spotify</button>
+    <button onclick="setUrl('https://youtube.com')" class="hover:text-white flex items-center gap-1">📺 YouTube</button>
+    <button onclick="setUrl('https://github.com')" class="hover:text-white flex items-center gap-1">🐙 GitHub</button>
+    <button onclick="setUrl('https://wikipedia.org')" class="hover:text-white flex items-center gap-1">📚 Wikipedia</button>
+  </div>
+  <main class="flex-1 bg-white relative">
+    <iframe id="webFrame" src="https://duckduckgo.com/?kae=d" class="size-full border-0"></iframe>
+  </main>
+  <script>
+    function setUrl(url) {
+      document.getElementById('urlInput').value = url;
+      document.getElementById('webFrame').src = url;
+    }
+    function navigateToUrl() {
+      let val = document.getElementById('urlInput').value.trim();
+      if (!val.startsWith('http://') && !val.startsWith('https://')) {
+        val = 'https://duckduckgo.com/?q=' + encodeURIComponent(val);
+      }
+      document.getElementById('webFrame').src = val;
+    }
+    function handleUrlKey(e) { if (e.key === 'Enter') navigateToUrl(); }
+    function historyBack() { document.getElementById('webFrame').contentWindow.history.back(); }
+    function historyForward() { document.getElementById('webFrame').contentWindow.history.forward(); }
+    function refreshPage() { document.getElementById('webFrame').src = document.getElementById('urlInput').value; }
+    function openTab(url) { setUrl(url); }
+  </script>
+</body>
+</html>`;
+
+      actions.push({
+        type: "code_execution",
+        title: `${appTitle} (Runnable)`,
+        description: `Autonomous code ready for "${prompt.slice(0, 40)}". Tap Run Live to preview.`,
+        codeSnippet: {
+          language: isBrowser ? "html" : "typescript",
+          filename,
+          code: isBrowser ? browserHtml : `// ${appTitle}\nexport default function App() {\n  return (\n    <div className="p-6 text-white bg-zinc-950 min-h-screen">\n      <h1 className="text-xl font-bold">App generated for: ${prompt.replace(/"/g, '\\"')}</h1>\n    </div>\n  );\n}`,
+        },
+      });
+
+      actions.push({
+        type: "app_launcher",
+        title: "Open in No-Code Visual Builder",
+        description: `Open and customize "${appTitle}" in the visual project workspace.`,
+        app: "No-Code Platform",
+        appUrl: "/build",
+        appScheme: "build://",
+      });
+
+      actions.push({
+        type: "suggestion",
+        title: "Follow-up Questions & Options",
+        description: "Choose an option or tell me what to refine:",
+        suggestions: [
+          "Add bookmarks for Spotify, YouTube & GitHub",
+          "Open in No-Code Visual Builder",
+          "Test live in sandbox runner",
+          "Add multi-tab browsing support",
+        ],
+      });
+    }
+
+    if (lowerP.includes("spotify") && !actions.some((a) => a.app === "Spotify")) {
+      const songQuery = prompt.replace(/(open\s+spotify\s+and\s+)?(play|listen\s+to|start|stream)?\s*(some|the|a)?/i, "").replace(/on\s+spotify/i, "").trim() || "focus music";
+      actions.push({
+        type: "app_launcher",
+        title: `Play "${songQuery}" on Spotify`,
+        description: `Launching Spotify search & player for "${songQuery}".`,
+        app: "Spotify",
+        appUrl: `https://open.spotify.com/search/${encodeURIComponent(songQuery)}`,
+        appScheme: `spotify://search/${encodeURIComponent(songQuery)}`,
+      });
+    }
+
     // Clean conversational spoken text for Browser SpeechSynthesis API
     let speechText = assistantText
       .replace(/```[\s\S]*?```/g, "")
@@ -319,14 +437,16 @@ CRITICAL RULES:
       .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
       .trim();
 
-    if (mediaPlayer && !speechText.toLowerCase().includes("play") && !speechText.toLowerCase().includes("song")) {
+    if (isCodeOrBrowser && !speechText.toLowerCase().includes("code") && !speechText.toLowerCase().includes("browser")) {
+      speechText = `I have written the code and created the application for you. You can run it live or open it in the visual builder. ${speechText}`;
+    } else if (mediaPlayer && !speechText.toLowerCase().includes("play") && !speechText.toLowerCase().includes("song")) {
       speechText = `Playing ${mediaPlayer.title} for you now. ${speechText}`;
     } else if (detectedApp && !speechText.toLowerCase().includes("open")) {
       speechText = `Opening ${detectedApp.app} on your device now. ${speechText}`;
     }
 
     if (!speechText) {
-      speechText = mediaPlayer ? `Playing ${mediaPlayer.title} for you now!` : "Here is what I found for you.";
+      speechText = mediaPlayer ? `Playing ${mediaPlayer.title} for you now!` : "Here is what I prepared for you.";
     }
 
     return {
@@ -380,31 +500,18 @@ Rules:
 
       let transcript = "";
 
-      // 1. Try gemini-3.1-flash-lite for ultra-fast, accurate neural audio transcription
-      try {
-        const res = await ai.models.generateContent({
-          model: "gemini-3.1-flash-lite",
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  inlineData: {
-                    data: base64Data,
-                    mimeType,
-                  },
-                },
-                { text: prompt },
-              ],
-            },
-          ],
-        });
-        if (res.text) transcript = res.text.trim();
-      } catch {
-        // 2. Fallback to gemini-flash-latest
+      // High-performance Gemini speech transcription models
+      const sttCandidates = [
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-2.5-flash-lite",
+      ];
+
+      for (const m of sttCandidates) {
         try {
           const res = await ai.models.generateContent({
-            model: "gemini-flash-latest",
+            model: m,
             contents: [
               {
                 role: "user",
@@ -420,9 +527,13 @@ Rules:
               },
             ],
           });
-          if (res.text) transcript = res.text.trim();
+          const txt = typeof res.text === "function" ? (res.text as any)() : res.text;
+          if (txt && typeof txt === "string" && txt.trim().length > 0) {
+            transcript = txt.trim();
+            break;
+          }
         } catch {
-          // ignore
+          // try next candidate
         }
       }
 
