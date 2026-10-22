@@ -51,7 +51,11 @@ import {
   TwilioLogo,
   GoogleDriveLogo,
   GoogleSheetsLogo,
+  GoogleAnalyticsLogo,
+  PostHogLogo,
+  MixpanelLogo,
 } from "@/components/icons/app-logos";
+import { FeatureNavBar } from "@/components/feature-nav-bar";
 import { ToolConnectionModal } from "@/components/tool-connection-modal";
 import { cn } from "@/lib/utils";
 
@@ -1545,7 +1549,7 @@ function BuildPage() {
 
         {/* Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
-          {["All", "Enabled", "Ecommerce", "Communication", "Database", "Storage", "AI"].map((cat) => {
+          {["All", "Enabled", "Analytics", "Ecommerce", "Communication", "Database", "Storage", "AI"].map((cat) => {
             const active = connectorFilterCategory === cat;
             return (
               <button
@@ -1559,7 +1563,7 @@ function BuildPage() {
                     : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200",
                 )}
               >
-                {cat === "All" ? "All 151" : cat === "Enabled" ? `Enabled ${Object.keys(userToolKeys).length + 2}` : cat}
+                {cat === "All" ? "All 154" : cat === "Enabled" ? `Enabled ${Object.keys(userToolKeys).length + 2}` : cat}
               </button>
             );
           })}
@@ -1615,6 +1619,9 @@ function BuildPage() {
           {[
             { name: "Gmail", desc: "Read, send, and manage your emails via Google Workspace", category: "Communication", logo: GmailLogo },
             { name: "Google Maps Platform", desc: "Maps, geocoding, directions, and places APIs", category: "Maps & Location", logo: GoogleMapsLogo },
+            { name: "Google Analytics (GA4)", desc: "Track user traffic, events, pageviews, and retention", category: "Analytics", logo: GoogleAnalyticsLogo },
+            { name: "PostHog", desc: "Product analytics, session replays, and feature flags", category: "Analytics", logo: PostHogLogo },
+            { name: "Mixpanel", desc: "User behavioral analytics and conversion funnel analysis", category: "Analytics", logo: MixpanelLogo },
             { name: "Stripe", desc: "Set up payments, cards, Apple Pay & subscriptions", category: "Ecommerce", logo: StripeLogo },
             { name: "Shopify", desc: "Build an eCommerce store and catalog", category: "Ecommerce", logo: ShopifyLogo },
             { name: "Google Drive", desc: "Upload and download files and folders", category: "Storage", logo: GoogleDriveLogo },
@@ -1702,16 +1709,16 @@ function BuildPage() {
 
   /* ---------- GitHub Import Modal (Public via URL + Private from User's GitHub Account) ---------- */
   const githubModalOverlay = githubModalOpen && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs">
-      <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl border border-black/10 space-y-4 text-zinc-900">
-        <div className="flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-3xl bg-[#0c1938] border border-blue-500/30 p-6 shadow-2xl shadow-blue-950 space-y-4 text-white">
+        <div className="flex items-center justify-between border-b border-blue-500/20 pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-zinc-900 text-white shadow-xs">
+            <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25">
               <Github className="size-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-zinc-900 text-sm">Import from GitHub</h3>
-              <p className="text-xs text-zinc-500">
+              <h3 className="font-semibold text-white text-sm">Import from GitHub</h3>
+              <p className="text-xs text-blue-300/70">
                 Import a public repository by URL or a private repository from your GitHub account
               </p>
             </div>
@@ -1719,22 +1726,22 @@ function BuildPage() {
           <button
             type="button"
             onClick={() => setGithubModalOpen(false)}
-            className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900"
+            className="rounded-full p-1.5 text-blue-300/70 hover:bg-blue-600/20 hover:text-white transition"
           >
             <X className="size-4" />
           </button>
         </div>
 
         {/* Mode Switcher Tabs: Public Repository (URL) vs Private Repository (My Account) */}
-        <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-zinc-100 p-1 text-xs">
+        <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-[#070e20] border border-blue-500/25 p-1 text-xs">
           <button
             type="button"
             onClick={() => setGithubImportTab("public")}
             className={cn(
-              "flex items-center justify-center gap-1.5 rounded-xl py-2.5 font-semibold transition",
+              "flex items-center justify-center gap-1.5 rounded-xl py-2.5 font-semibold transition cursor-pointer",
               githubImportTab === "public"
-                ? "bg-white text-zinc-900 shadow-2xs"
-                : "text-zinc-500 hover:text-zinc-900",
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-blue-300/70 hover:text-white",
             )}
           >
             <Globe className="size-3.5" />
@@ -1744,10 +1751,10 @@ function BuildPage() {
             type="button"
             onClick={() => setGithubImportTab("private")}
             className={cn(
-              "flex items-center justify-center gap-1.5 rounded-xl py-2.5 font-semibold transition",
+              "flex items-center justify-center gap-1.5 rounded-xl py-2.5 font-semibold transition cursor-pointer",
               githubImportTab === "private"
-                ? "bg-white text-zinc-900 shadow-2xs"
-                : "text-zinc-500 hover:text-zinc-900",
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-blue-300/70 hover:text-white",
             )}
           >
             <Lock className="size-3.5" />
@@ -1759,16 +1766,16 @@ function BuildPage() {
           /* ==================== TAB 1: PUBLIC REPOSITORY VIA URL ==================== */
           <div className="space-y-4 pt-1">
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-zinc-800 block">
+              <label className="text-xs font-semibold text-white block">
                 Public GitHub Repository URL
               </label>
-              <div className="flex items-center rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs focus-within:border-zinc-900 focus-within:bg-white transition">
-                <Globe className="size-4 text-zinc-400 mr-2 shrink-0" />
+              <div className="flex items-center rounded-2xl border border-blue-500/30 bg-[#070e20] px-3.5 py-2.5 text-xs focus-within:border-blue-400 transition">
+                <Globe className="size-4 text-blue-400 mr-2 shrink-0" />
                 <input
                   value={githubUrlInput}
                   onChange={(e) => setGithubUrlInput(e.target.value)}
                   placeholder="https://github.com/owner/repo or owner/repo"
-                  className="bg-transparent flex-1 text-zinc-900 outline-none font-mono"
+                  className="bg-transparent flex-1 text-white placeholder:text-blue-300/40 outline-none font-mono"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && githubUrlInput.trim()) {
                       handleImportGithubRepo(githubUrlInput, false);
@@ -1776,16 +1783,16 @@ function BuildPage() {
                   }}
                 />
               </div>
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-[11px] text-blue-300/70">
                 Paste any public GitHub URL to import its files and edit the code directly in-place.
               </p>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-blue-500/20">
               <button
                 type="button"
                 onClick={() => setGithubModalOpen(false)}
-                className="rounded-2xl border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-600 hover:text-zinc-900"
+                className="rounded-2xl border border-blue-500/30 bg-[#070e20] px-4 py-2 text-xs font-semibold text-blue-200 hover:text-white hover:bg-blue-600/20 transition cursor-pointer"
               >
                 Cancel
               </button>
@@ -1793,7 +1800,7 @@ function BuildPage() {
                 type="button"
                 disabled={!githubUrlInput.trim() || isImportingGithub}
                 onClick={() => handleImportGithubRepo(githubUrlInput, false)}
-                className="flex items-center gap-1.5 rounded-2xl bg-zinc-900 px-4 py-2 text-xs font-bold text-white hover:bg-zinc-800 transition disabled:opacity-50 shadow-xs"
+                className="flex items-center gap-1.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-xs font-bold text-white hover:brightness-110 transition disabled:opacity-50 shadow-sm cursor-pointer"
               >
                 {isImportingGithub ? (
                   <>
@@ -2234,11 +2241,11 @@ function BuildPage() {
         {showHistory && (
           <>
             <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs" onClick={() => setShowHistory(false)} />
-            <div className="fixed inset-x-4 top-20 z-50 mx-auto max-w-lg max-h-[75vh] flex flex-col rounded-3xl bg-white p-5 shadow-2xl border border-black/10 text-zinc-900">
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
+            <div className="fixed inset-x-4 top-20 z-50 mx-auto max-w-lg max-h-[75vh] flex flex-col rounded-3xl bg-[#0c1938] p-5 shadow-2xl shadow-blue-950 border border-blue-500/30 text-white">
+              <div className="flex items-center justify-between pb-3 border-b border-blue-500/20">
                 <div className="flex items-center gap-2">
-                  <History className="size-4 text-zinc-700" />
-                  <h3 className="text-sm font-bold text-zinc-900">Project History</h3>
+                  <History className="size-4 text-blue-400" />
+                  <h3 className="text-sm font-bold text-white">Project History</h3>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -2247,14 +2254,14 @@ function BuildPage() {
                       setShowHistory(false);
                       reset();
                     }}
-                    className="rounded-full bg-zinc-900 px-3 py-1 text-[11px] font-semibold text-white hover:bg-zinc-800 transition"
+                    className="rounded-full bg-blue-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-blue-500 transition cursor-pointer"
                   >
                     + New Project
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowHistory(false)}
-                    className="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900"
+                    className="rounded-full p-1 text-blue-300/70 hover:bg-blue-600/20 hover:text-white transition"
                   >
                     <X className="size-4" />
                   </button>
@@ -2262,7 +2269,7 @@ function BuildPage() {
               </div>
               <div className="flex-1 overflow-y-auto pt-3 space-y-2">
                 {history.length === 0 ? (
-                  <p className="py-6 text-center text-xs text-zinc-500">No projects in history yet.</p>
+                  <p className="py-6 text-center text-xs text-blue-300/60">No projects in history yet.</p>
                 ) : (
                   history.map((h) => {
                     const isItemBuilding = h.status === "planning" || h.status === "writing";
@@ -2273,32 +2280,32 @@ function BuildPage() {
                         className={cn(
                           "flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition",
                           isCurrent
-                            ? "border-zinc-900 bg-zinc-50"
-                            : "border-zinc-200 bg-white hover:bg-zinc-50",
+                            ? "border-blue-500/60 bg-[#081226] text-white"
+                            : "border-blue-500/20 bg-[#070e20] text-blue-200 hover:border-blue-400/50 hover:text-white",
                         )}
                       >
                         <button
                           type="button"
                           onClick={() => openHistoryProject(h)}
-                          className="flex-1 text-left min-w-0"
+                          className="flex-1 text-left min-w-0 cursor-pointer"
                         >
                           <div className="flex items-center gap-2">
-                            <p className="text-sm font-semibold text-zinc-900 truncate">{h.name}</p>
+                            <p className="text-sm font-semibold text-white truncate">{h.name}</p>
                             {isCurrent && (
-                              <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-semibold text-white">
+                              <span className="rounded-full bg-blue-600/30 border border-blue-400/40 px-2 py-0.5 text-[10px] font-semibold text-blue-300">
                                 Active
                               </span>
                             )}
-                            <span className="text-xs text-zinc-500 shrink-0">
+                            <span className="text-xs text-blue-300/70 shrink-0">
                               · {isItemBuilding ? "Building…" : `${h.files?.length || 0} modules`}
                             </span>
                           </div>
-                          <p className="truncate text-xs text-zinc-500 mt-0.5">{h.idea}</p>
+                          <p className="truncate text-xs text-blue-300/60 mt-0.5">{h.idea}</p>
                         </button>
                         <button
                           type="button"
                           onClick={(e) => handleDeleteProject(h, e)}
-                          className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-red-100 bg-red-50/70 text-red-600 hover:bg-red-100 hover:text-red-700 transition"
+                          className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-red-500/30 bg-red-950/20 text-red-400 hover:bg-red-900/40 hover:text-red-300 transition cursor-pointer"
                           title="Delete project"
                           aria-label={`Delete project ${h.name}`}
                         >
@@ -2380,10 +2387,10 @@ function BuildPage() {
 
                   return (
                     <div key={t.id} className="space-y-5">
-                      {/* USER PROMPT: White Box with Black Text + "Show more" */}
+                      {/* USER PROMPT: Midnight Blue Box with Bright Crisp White Text + "Show more" */}
                       <div className="flex flex-col items-end">
-                        <div className="w-full max-w-[85%] rounded-[24px] bg-white border border-black/8 px-5 py-4 shadow-2xs">
-                          <p className="text-[16px] leading-[1.45] text-zinc-900 whitespace-pre-wrap break-words font-normal">
+                        <div className="w-full max-w-[85%] rounded-[24px] bg-[#0c1938] border border-blue-500/30 px-5 py-4 shadow-lg shadow-blue-950/50">
+                          <p className="text-[16px] leading-[1.5] text-white whitespace-pre-wrap break-words font-medium">
                             {displayedPrompt}
                           </p>
                           {isLongPrompt && (
@@ -2395,7 +2402,7 @@ function BuildPage() {
                                   [t.id]: !prev[t.id],
                                 }))
                               }
-                              className="mt-2 text-[14px] text-zinc-500 hover:text-zinc-800 transition"
+                              className="mt-2 text-[14px] text-blue-300 hover:text-white transition font-medium cursor-pointer"
                             >
                               {isPromptExpanded ? "Show less" : "Show more"}
                             </button>
@@ -2403,10 +2410,10 @@ function BuildPage() {
 
                           {/* Show attached images or folder inside user prompt card if present */}
                           {(t.attachedImages?.length || t.folderName) && (
-                            <div className="mt-3 flex flex-wrap items-center gap-2 pt-2 border-t border-zinc-100">
+                            <div className="mt-3 flex flex-wrap items-center gap-2 pt-2 border-t border-blue-500/20">
                               {t.folderName && (
-                                <span className="inline-flex items-center gap-1.5 text-xs text-zinc-700 bg-zinc-100 px-2.5 py-1 rounded-lg">
-                                  <Folder className="size-3.5 text-blue-600" />
+                                <span className="inline-flex items-center gap-1.5 text-xs text-white bg-blue-600/25 border border-blue-400/40 px-2.5 py-1 rounded-lg font-medium">
+                                  <Folder className="size-3.5 text-blue-400" />
                                   {t.folderName}
                                 </span>
                               )}
@@ -2416,7 +2423,7 @@ function BuildPage() {
                                   src={src}
                                   alt="Attached reference"
                                   referrerPolicy="no-referrer"
-                                  className="size-12 rounded-xl object-cover border border-zinc-200"
+                                  className="size-12 rounded-xl object-cover border border-blue-500/30"
                                 />
                               ))}
                             </div>
@@ -2424,14 +2431,14 @@ function BuildPage() {
                         </div>
 
                         {/* Meta icons + Timestamp row underneath user prompt card */}
-                        <div className="mt-2 flex items-center gap-3.5 px-2 text-zinc-500">
+                        <div className="mt-2 flex items-center gap-3.5 px-2 text-blue-300/80">
                           <button
                             type="button"
                             onClick={() => {
                               navigator.clipboard.writeText(t.prompt);
                               toast.success("Prompt copied");
                             }}
-                            className="hover:text-zinc-900 transition"
+                            className="hover:text-white transition cursor-pointer"
                             title="Copy prompt"
                           >
                             <Copy className="size-3.5" />
@@ -2442,7 +2449,7 @@ function BuildPage() {
                               navigator.clipboard.writeText(window.location.href);
                               toast.success("Link copied");
                             }}
-                            className="hover:text-zinc-900 transition"
+                            className="hover:text-white transition cursor-pointer"
                             title="Copy link"
                           >
                             <Link2 className="size-3.5" />
@@ -2450,18 +2457,18 @@ function BuildPage() {
                           <button
                             type="button"
                             onClick={() => setUpgrade(t.prompt)}
-                            className="hover:text-zinc-900 transition"
+                            className="hover:text-white transition cursor-pointer"
                             title="Edit prompt"
                           >
                             <Pencil className="size-3.5" />
                           </button>
-                          <span className="text-[13px] text-zinc-500">
+                          <span className="text-[13px] text-blue-300/70 font-mono">
                             {formatTurnTimestamp(t.at)}
                           </span>
                         </div>
                       </div>
 
-                      {/* AI RESPONSE: "Thought for 6s" + Black Text Summary + Activity Link */}
+                      {/* AI RESPONSE: "Thought for 6s" + Crisp White Text Summary + Activity Link */}
                       <div className="space-y-3 px-1">
                         <button
                           type="button"
@@ -2471,8 +2478,11 @@ function BuildPage() {
                               [t.id]: !prev[t.id],
                             }))
                           }
-                          className="text-[15px] text-zinc-500 hover:text-zinc-800 transition flex items-center gap-1.5"
+                          className="text-[15px] text-blue-300 hover:text-white transition flex items-center gap-1.5 font-medium cursor-pointer"
                         >
+                          {t.status === "building" && (
+                            <Loader2 className="size-3.5 animate-spin text-pink-400 mr-0.5" />
+                          )}
                           <span>
                             {t.status === "building"
                               ? "Thinking…"
@@ -2481,15 +2491,18 @@ function BuildPage() {
                         </button>
 
                         {expandedThoughts[t.id] && progress.length > 0 && (
-                          <div className="rounded-2xl bg-white/80 border border-black/5 p-3 text-xs text-zinc-600 space-y-1 font-mono">
+                          <div className="rounded-2xl bg-[#091530]/90 border border-blue-500/25 p-3.5 text-xs text-blue-200 space-y-1 font-mono shadow-inner">
                             {progress.map((line, i) => (
-                              <div key={i}>{line}</div>
+                              <div key={i} className="flex items-center gap-1.5">
+                                <span className="text-pink-400">›</span>
+                                <span>{line}</span>
+                              </div>
                             ))}
                           </div>
                         )}
 
-                        {/* AI Action / Output Text in dark ink */}
-                        <p className="text-[16.5px] leading-[1.5] text-zinc-900 font-normal">
+                        {/* AI Action / Output Text in Crisp Bright White */}
+                        <p className="text-[16.5px] leading-[1.55] text-white font-medium tracking-wide">
                           {t.aiSummary}
                         </p>
 
@@ -2497,13 +2510,13 @@ function BuildPage() {
                         <button
                           type="button"
                           onClick={() => goToSlide("preview")}
-                          className="inline-flex items-center gap-1.5 text-[15px] text-zinc-500 hover:text-zinc-900 transition py-0.5"
+                          className="inline-flex items-center gap-1.5 text-[15px] text-blue-200/90 hover:text-white transition py-0.5 cursor-pointer group"
                         >
                           {t.status === "building" && (
-                            <Loader2 className="size-3.5 animate-spin text-zinc-500 mr-0.5" />
+                            <Loader2 className="size-3.5 animate-spin text-cyan-400 mr-0.5" />
                           )}
-                          <span>{t.activityLabel}</span>
-                          <ChevronRight className="size-4" />
+                          <span className="group-hover:underline underline-offset-4">{t.activityLabel}</span>
+                          <ChevronRight className="size-4 text-pink-400 transition group-hover:translate-x-0.5" />
                         </button>
 
                         {/* Bottom ellipses / action trigger */}
@@ -2511,7 +2524,7 @@ function BuildPage() {
                           <button
                             type="button"
                             onClick={() => goToSlide("preview")}
-                            className="text-zinc-500 hover:text-zinc-900 transition p-1"
+                            className="text-blue-400/80 hover:text-white transition p-1 cursor-pointer"
                             title="View project details & preview"
                           >
                             <MoreHorizontal className="size-5" />
@@ -2524,13 +2537,13 @@ function BuildPage() {
 
                 {/* In-Place Edit Scoping Loading Indicator */}
                 {isScopingEdit && (
-                  <div className="rounded-3xl bg-white border border-black/10 p-5 shadow-xs space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-zinc-700">
-                      <Loader2 className="size-4 animate-spin text-zinc-900" />
-                      <span>Preparing integration questions for "{built.name}"…</span>
+                  <div className="rounded-3xl bg-[#0c1938] border border-blue-500/30 p-5 shadow-lg space-y-2 text-white">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-blue-200">
+                      <Loader2 className="size-4 animate-spin text-blue-400" />
+                      <span className="text-white">Preparing integration questions for "{built.name}"…</span>
                     </div>
                     {pendingEditIdea && (
-                      <p className="text-xs text-zinc-500">
+                      <p className="text-xs text-blue-200/80">
                         Scoping how to edit and integrate: "{pendingEditIdea}"
                       </p>
                     )}
@@ -2539,13 +2552,13 @@ function BuildPage() {
 
                 {/* In-Place Edit Scoping Form ("What you should ask" before editing the current app's code) */}
                 {questions && questions.length > 0 && (
-                  <div className="rounded-3xl bg-white border border-black/10 p-5 shadow-md space-y-4">
-                    <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+                  <div className="rounded-3xl bg-[#0c1938] border border-blue-500/30 p-5 shadow-2xl space-y-4 text-white">
+                    <div className="flex items-center justify-between border-b border-blue-500/20 pb-3">
                       <div>
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400">
                           In-Place Edit · Question {step + 1} of {questions.length}
                         </span>
-                        <h4 className="text-sm font-semibold text-zinc-900 mt-0.5">
+                        <h4 className="text-sm font-semibold text-white mt-0.5">
                           Integrating into {built.name}
                         </h4>
                       </div>
@@ -2558,13 +2571,13 @@ function BuildPage() {
                             triggerBuild(targetIdea, [], targetIdea, true);
                           }
                         }}
-                        className="rounded-full bg-zinc-100 hover:bg-zinc-200 px-3 py-1 text-[11px] font-semibold text-zinc-800 transition"
+                        className="rounded-full bg-blue-600 hover:bg-blue-500 px-3.5 py-1 text-[11px] font-semibold text-white transition cursor-pointer shadow-sm"
                       >
                         Apply Directly Now
                       </button>
                     </div>
 
-                    <p className="text-[15px] font-medium text-zinc-900 leading-snug">
+                    <p className="text-[16px] font-medium text-white leading-snug">
                       {questions[step]?.question}
                     </p>
 
@@ -2579,26 +2592,26 @@ function BuildPage() {
                               setAnswers((prev) => prev.map((v, i) => (i === step ? opt : v)))
                             }
                             className={cn(
-                              "flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-xs font-medium ring-1 transition",
+                              "flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-xs font-medium ring-1 transition cursor-pointer",
                               selected
-                                ? "bg-zinc-900 text-white ring-zinc-900"
-                                : "bg-zinc-50 text-zinc-800 ring-zinc-200 hover:bg-zinc-100",
+                                ? "bg-blue-600 text-white ring-blue-400"
+                                : "bg-[#081226] text-white ring-blue-500/25 hover:bg-blue-600/20",
                             )}
                           >
-                            <span>{opt}</span>
+                            <span className="text-white font-medium">{opt}</span>
                             {selected && <Check className="size-4 shrink-0 text-emerald-400" />}
                           </button>
                         );
                       })}
                     </div>
 
-                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-100">
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-blue-500/20">
                       <div className="flex items-center gap-2">
                         {step > 0 && (
                           <button
                             type="button"
                             onClick={() => setStep((s) => s - 1)}
-                            className="rounded-full px-3.5 py-2 text-xs font-medium text-zinc-600 hover:text-zinc-900"
+                            className="rounded-full px-3.5 py-2 text-xs font-medium text-blue-300 hover:text-white"
                           >
                             Previous
                           </button>
@@ -2609,7 +2622,7 @@ function BuildPage() {
                             setQuestions(null);
                             setPendingEditIdea(null);
                           }}
-                          className="rounded-full px-3 py-2 text-xs text-zinc-400 hover:text-zinc-700"
+                          className="rounded-full px-3 py-2 text-xs text-blue-300/70 hover:text-white"
                         >
                           Cancel
                         </button>
@@ -2854,338 +2867,198 @@ function BuildPage() {
         {toolApiKeyModalOverlay}
         {codeExplorerModal}
 
-        {/* Publish & Share Hub Modal */}
+        {/* Publish & Share Hub Modal with Prominent Add Custom Domain Option */}
         {publishOpen && (
           <>
-            <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm animate-in fade-in" onClick={() => setPublishOpen(false)} />
-            <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 mx-auto max-w-lg rounded-3xl bg-white p-6 shadow-2xl ring-1 ring-black/10 text-zinc-900">
-              <div className="flex items-center justify-between pb-3 border-b border-black/5">
+            <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm animate-in fade-in" onClick={() => setPublishOpen(false)} />
+            <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 mx-auto max-w-lg rounded-3xl bg-[#0c1938] border border-blue-500/30 p-6 shadow-2xl shadow-blue-950 text-white max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between pb-3 border-b border-blue-500/20">
                 <div className="flex items-center gap-2.5">
-                  <div className="flex size-9 items-center justify-center rounded-2xl bg-zinc-900 text-white">
+                  <div className="flex size-9 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25">
                     <Rocket className="size-4" />
                   </div>
                   <div>
-                    <h3 className="font-serif text-lg font-bold text-zinc-900">Publish & Share App</h3>
-                    <p className="text-[11px] text-zinc-500">Production Deployment & Social Sharing</p>
+                    <h3 className="font-serif text-lg font-bold text-white">Publish & Deploy App</h3>
+                    <p className="text-[11px] text-blue-300/70">Live Web App & Custom Domain Setup</p>
                   </div>
                 </div>
-                <button onClick={() => setPublishOpen(false)} className="rounded-full p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900">
+                <button onClick={() => setPublishOpen(false)} className="rounded-full p-1.5 text-blue-300/70 hover:bg-blue-600/20 hover:text-white transition">
                   <X className="size-4" />
                 </button>
               </div>
 
-              {/* Modal Tabs */}
-              <div className="mt-4 flex gap-1 rounded-2xl bg-zinc-100 p-1 text-xs">
-                <button
-                  onClick={() => setPublishTab("pipeline")}
-                  className={cn(
-                    "flex-1 rounded-xl py-2 font-medium transition",
-                    publishTab === "pipeline" ? "bg-white text-zinc-900 shadow-2xs" : "text-zinc-500 hover:text-zinc-900"
-                  )}
-                >
-                  Deploy Pipeline
-                </button>
-                <button
-                  onClick={() => setPublishTab("share")}
-                  className={cn(
-                    "flex-1 rounded-xl py-2 font-medium transition",
-                    publishTab === "share" ? "bg-white text-zinc-900 shadow-2xs" : "text-zinc-500 hover:text-zinc-900"
-                  )}
-                >
-                  Live URLs & Share
-                </button>
-                <button
-                  onClick={() => setPublishTab("domain")}
-                  className={cn(
-                    "flex-1 rounded-xl py-2 font-medium transition",
-                    publishTab === "domain" ? "bg-white text-zinc-900 shadow-2xs" : "text-zinc-500 hover:text-zinc-900"
-                  )}
-                >
-                  Custom Domain
-                </button>
+              {/* Status Banner */}
+              <div className="mt-4 rounded-2xl border border-emerald-500/40 bg-emerald-950/40 p-3.5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="flex size-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <div>
+                    <p className="text-xs font-bold text-white">Application is Live on the Internet</p>
+                    <p className="text-[11px] text-emerald-300/80">Edge CDN distributed & SSL secured</p>
+                  </div>
+                </div>
+                <span className="rounded-full bg-emerald-500/20 border border-emerald-400/40 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300">
+                  100% Live
+                </span>
               </div>
 
-              {/* Tab 1: Formal Deployment Pipeline */}
-              {publishTab === "pipeline" && (
-                <div className="space-y-4 pt-4">
-                  <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-zinc-900">
-                        {deployStage === "live" ? "Production Status: Live & Deployed" : deployStage === "idle" ? "Deployment Status: Ready to Build" : "Building & Deploying..."}
-                      </span>
-                      <span className="text-[11px] font-mono font-semibold text-zinc-700 tabular-nums">
-                        {deployProgress}%
-                      </span>
-                    </div>
+              {/* Live Web URL Section */}
+              <div className="mt-3.5 space-y-2">
+                <label className="text-xs font-bold text-white block">Live Production URL</label>
+                <div className="flex items-center gap-2 rounded-xl border border-blue-500/30 bg-[#070e20] px-3 py-2 text-xs">
+                  <Globe className="size-3.5 text-blue-400 shrink-0" />
+                  <span className="text-blue-300/60 truncate">{typeof window !== "undefined" ? `${window.location.origin}/p/` : "https://myaipro.app/p/"}</span>
+                  <input
+                    value={publishSlug}
+                    onChange={(e) => setPublishSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                    className="bg-transparent font-semibold text-white outline-none flex-1 min-w-0"
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const slug = await persistPublishedApp(built, publishSlug);
+                      const liveUrl = `${window.location.origin}/p/${slug}`;
+                      navigator.clipboard.writeText(liveUrl);
+                      toast.success("Live URL copied!");
+                    }}
+                    className="flex items-center gap-1 text-[11px] font-bold text-blue-300 hover:text-white shrink-0 cursor-pointer"
+                    title="Copy Link"
+                  >
+                    <Copy className="size-3" /> Copy
+                  </button>
+                </div>
+              </div>
 
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-200">
-                      <div
-                        className="h-full bg-emerald-600 transition-all duration-300 rounded-full"
-                        style={{ width: `${deployProgress}%` }}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-4 gap-1 pt-1 text-[10px] text-center">
-                      <div className={cn("p-1 rounded-lg", deployProgress >= 25 ? "text-emerald-700 font-bold" : "text-zinc-400")}>
-                        1. Code Check
-                      </div>
-                      <div className={cn("p-1 rounded-lg", deployProgress >= 50 ? "text-emerald-700 font-bold" : "text-zinc-400")}>
-                        2. Vite Bundle
-                      </div>
-                      <div className={cn("p-1 rounded-lg", deployProgress >= 75 ? "text-emerald-700 font-bold" : "text-zinc-400")}>
-                        3. Edge CDN
-                      </div>
-                      <div className={cn("p-1 rounded-lg", deployProgress === 100 ? "text-emerald-700 font-bold" : "text-zinc-400")}>
-                        4. SSL / Live
-                      </div>
-                    </div>
+              {/* PROMINENT ADD CUSTOM DOMAIN OPTION */}
+              <div className="mt-4 rounded-2xl border border-blue-500/30 bg-[#081226] p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Globe className="size-4 text-blue-400" />
+                    <h4 className="text-xs font-bold text-white">Add Custom Domain</h4>
                   </div>
-
-                  {deployLogs.length > 0 && (
-                    <div className="rounded-2xl bg-zinc-950 p-3 font-mono text-[11px] text-zinc-300 space-y-1 max-h-36 overflow-y-auto border border-zinc-800">
-                      {deployLogs.map((log, idx) => (
-                        <div key={idx} className={cn(log.startsWith("✔") ? "text-emerald-400" : "text-zinc-300")}>
-                          {log}
-                        </div>
-                      ))}
-                    </div>
+                  {domainVerified ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                      <Check className="size-3" /> SSL Active
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-blue-600/20 border border-blue-400/30 px-2 py-0.5 text-[10px] font-semibold text-blue-300">
+                      Custom URL
+                    </span>
                   )}
-
-                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-black/5">
-                    {deployStage === "live" ? (
-                      <div className="flex flex-wrap items-center gap-2 w-full justify-between">
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            const slug = await persistPublishedApp(built, publishSlug);
-                            const liveUrl = `${window.location.origin}/p/${slug}`;
-                            navigator.clipboard.writeText(liveUrl);
-                            toast.success("Live production URL copied!");
-                          }}
-                          className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-xs font-semibold text-zinc-900 hover:bg-zinc-100 transition"
-                        >
-                          <Copy className="size-3.5" /> Copy Live URL
-                        </button>
-                        <div className="flex items-center gap-2">
-                          <a
-                            href={`/p/${publishSlug || built.name.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "") || "my-app"}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={() => {
-                              persistPublishedApp(built, publishSlug);
-                            }}
-                            className="flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 transition"
-                          >
-                            <ExternalLink className="size-3.5" /> New Tab
-                          </a>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              const slug = await persistPublishedApp(built, publishSlug);
-                              setPublishOpen(false);
-                              navigate({ to: "/p/$appId", params: { appId: slug } });
-                            }}
-                            className="flex items-center gap-1.5 rounded-full bg-emerald-600 px-5 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition"
-                          >
-                            <Rocket className="size-3.5" /> Open Live Web App
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={deployStage !== "idle"}
-                        onClick={() => {
-                          const activeSlug =
-                            publishSlug ||
-                            built.name.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "") ||
-                            "my-app";
-                          setPublishSlug(activeSlug);
-                          setDeployStage("building");
-                          setDeployProgress(25);
-                          setDeployLogs([
-                            `[${new Date().toLocaleTimeString()}] Triggering cloud build for "${built.name}"...`,
-                            `✔ Validating ${built.files.length} project file(s) and dependencies`,
-                          ]);
-
-                          setTimeout(() => {
-                            setDeployStage("bundling");
-                            setDeployProgress(55);
-                            setDeployLogs((prev) => [
-                              ...prev,
-                              `✔ Synthesizing production bundle and asset minification`,
-                            ]);
-                          }, 400);
-
-                          setTimeout(() => {
-                            setDeployStage("cdn");
-                            setDeployProgress(85);
-                            setDeployLogs((prev) => [
-                              ...prev,
-                              `✔ Propagating edge distribution to global CDN points of presence`,
-                            ]);
-                          }, 800);
-
-                          setTimeout(async () => {
-                            const slug = await persistPublishedApp(built, activeSlug);
-                            const liveUrl = `${window.location.origin}/p/${slug}`;
-                            setDeployStage("live");
-                            setDeployProgress(100);
-                            setDeployLogs((prev) => [
-                              ...prev,
-                              `✔ Provisioned Let's Encrypt TLS 1.3 certificate`,
-                              `✔ Production application is LIVE: ${liveUrl}`,
-                            ]);
-                            toast.success(`Application published! Live at ${liveUrl}`);
-                          }, 1200);
-                        }}
-                        className="w-full flex items-center justify-center gap-2 rounded-2xl bg-zinc-900 py-3 text-xs font-bold text-white shadow hover:bg-zinc-800 transition disabled:opacity-50"
-                      >
-                        <Rocket className="size-4" /> Trigger Production Build & Deploy
-                      </button>
-                    )}
-                  </div>
                 </div>
-              )}
 
-              {/* Tab 2: Share & Live URLs */}
-              {publishTab === "share" && (
-                <div className="space-y-4 pt-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-semibold text-zinc-900 block">Public Live Web App URL</label>
-                      <span className="text-[11px] font-medium text-emerald-700">
-                        Public Internet Ready
-                      </span>
-                    </div>
-                    <div className="flex items-center rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs">
-                      <Globe className="size-3.5 text-zinc-400 mr-1.5 shrink-0" />
-                      <span className="text-zinc-500 truncate">{typeof window !== "undefined" ? `${window.location.origin}/p/` : "https://myaipro.app/p/"}</span>
-                      <input
-                        value={publishSlug}
-                        onChange={(e) => setPublishSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                        className="bg-transparent font-medium text-zinc-900 outline-none px-1 flex-1 min-w-0"
-                      />
-                    </div>
-                  </div>
+                <p className="text-[11px] text-blue-200/80 leading-snug">
+                  Point your own custom domain (e.g. <code className="text-blue-300">app.yourdomain.com</code> or <code className="text-blue-300">mycompany.com</code>) to your My AI Pro project with automated zero-config Let's Encrypt SSL.
+                </p>
 
-                  <div>
-                    <label className="text-xs font-semibold text-zinc-900 block mb-1.5">Share Live App Link:</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => shareApp("whatsapp", built)}
-                        className="flex items-center justify-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition"
-                      >
-                        <span>WhatsApp</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => shareApp("email", built)}
-                        className="flex items-center justify-center gap-1.5 rounded-xl border border-blue-300 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800 hover:bg-blue-100 transition"
-                      >
-                        <span>Gmail</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => shareApp("more", built)}
-                        className="flex items-center justify-center gap-1.5 rounded-xl border border-zinc-300 bg-zinc-100 px-3 py-2 text-xs font-semibold text-zinc-900 hover:bg-zinc-200 transition"
-                      >
-                        <span>Copy / Share</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-black/5">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const slug = await persistPublishedApp(built, publishSlug);
-                        const url = `${window.location.origin}/p/${slug}`;
-                        navigator.clipboard.writeText(url);
-                        toast.success("Live URL copied to clipboard!");
-                      }}
-                      className="flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-xs font-medium text-zinc-900 hover:bg-zinc-100 transition"
-                    >
-                      <Copy className="size-3.5" /> Copy Live Link
-                    </button>
-
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={`/p/${publishSlug || built.name.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "") || "my-app"}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => {
-                          persistPublishedApp(built, publishSlug);
-                        }}
-                        className="flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 transition"
-                      >
-                        <ExternalLink className="size-3.5" /> New Tab
-                      </a>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const slug = await persistPublishedApp(built, publishSlug);
-                          toast.success(`Application published! Opening /p/${slug}`);
-                          setPublishOpen(false);
-                          navigate({ to: "/p/$appId", params: { appId: slug } });
-                        }}
-                        className="flex items-center gap-1.5 rounded-full bg-zinc-900 px-5 py-2 text-xs font-bold text-white shadow hover:bg-zinc-800 transition"
-                      >
-                        <Check className="size-3.5" /> Open Live
-                      </button>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    value={customDomain}
+                    onChange={(e) => {
+                      setCustomDomain(e.target.value.toLowerCase().trim());
+                      setDomainVerified(false);
+                    }}
+                    placeholder="e.g. app.yourdomain.com"
+                    className="flex-1 rounded-xl border border-blue-500/30 bg-[#070e20] px-3 py-2 text-xs text-white placeholder:text-blue-300/40 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition"
+                  />
+                  <button
+                    type="button"
+                    disabled={!customDomain.trim() || verifyingDomain}
+                    onClick={() => {
+                      if (!customDomain.includes(".")) {
+                        toast.error("Please enter a valid domain (e.g. app.yourcompany.com)");
+                        return;
+                      }
+                      setVerifyingDomain(true);
+                      setTimeout(() => {
+                        setVerifyingDomain(false);
+                        setDomainVerified(true);
+                        toast.success(`Domain ${customDomain} connected & SSL issued!`);
+                        persistPublishedApp(built, publishSlug);
+                      }, 900);
+                    }}
+                    className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-3.5 py-2 text-xs font-bold text-white hover:brightness-110 disabled:opacity-40 transition shrink-0 shadow-sm cursor-pointer"
+                  >
+                    {verifyingDomain ? "Verifying…" : domainVerified ? "Connected ✔" : "Connect Domain"}
+                  </button>
                 </div>
-              )}
 
-              {/* Tab 3: Custom Domain */}
-              {publishTab === "domain" && (
-                <div className="space-y-4 pt-4">
-                  <div>
-                    <label className="text-xs font-semibold text-zinc-900 block mb-1">Your Custom Domain</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        value={customDomain}
-                        onChange={(e) => {
-                          setCustomDomain(e.target.value.toLowerCase().trim());
-                          setDomainVerified(false);
-                        }}
-                        placeholder="e.g. app.yourdomain.com"
-                        className="flex-1 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-900 outline-none"
-                      />
-                      <button
-                        type="button"
-                        disabled={!customDomain.trim() || verifyingDomain}
-                        onClick={() => {
-                          if (!customDomain.includes(".")) {
-                            toast.error("Please enter a valid domain");
-                            return;
-                          }
-                          setVerifyingDomain(true);
-                          setTimeout(() => {
-                            setVerifyingDomain(false);
-                            setDomainVerified(true);
-                            toast.success(`Domain ${customDomain} verified & SSL issued!`);
-                          }, 1000);
-                        }}
-                        className="rounded-xl bg-zinc-900 px-3.5 py-2 text-xs font-semibold text-white disabled:opacity-40"
-                      >
-                        {verifyingDomain ? "Verifying…" : "Verify Domain"}
-                      </button>
-                    </div>
+                {domainVerified ? (
+                  <div className="rounded-xl bg-[#070e20] p-2.5 border border-emerald-500/30 text-[11px] space-y-1 text-white">
+                    <p className="font-semibold text-emerald-300 flex items-center gap-1.5">
+                      <Check className="size-3.5" /> Domain successfully bound to your app!
+                    </p>
+                    <p className="text-[10px] text-blue-300/70">
+                      DNS CNAME Record: <code className="text-white">app</code> ➔ <code className="text-white">cdn.myaipro.app</code> (Proxied / TLS 1.3 Active)
+                    </p>
                   </div>
+                ) : (
+                  <div className="rounded-xl bg-[#070e20] p-2 text-[10px] text-blue-200/80 space-y-0.5 border border-blue-500/20">
+                    <p className="font-medium text-white">DNS Setup Guide:</p>
+                    <p>In your DNS registrar (GoDaddy, Namecheap, Cloudflare), add a <strong className="text-white">CNAME</strong> record pointing to <strong className="text-white">cdn.myaipro.app</strong>.</p>
+                  </div>
+                )}
+              </div>
 
-                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-black/5">
-                    <button
-                      onClick={() => setPublishOpen(false)}
-                      className="rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-xs font-medium text-zinc-900"
-                    >
-                      Done
-                    </button>
-                  </div>
+              {/* Share Live App Link */}
+              <div className="mt-4 pt-3 border-t border-blue-500/20 space-y-2">
+                <label className="text-xs font-semibold text-white block">Share with others:</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => shareApp("whatsapp", built)}
+                    className="flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-950/30 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/40 transition cursor-pointer"
+                  >
+                    <span>WhatsApp</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => shareApp("email", built)}
+                    className="flex items-center justify-center gap-1.5 rounded-xl border border-blue-500/40 bg-blue-950/30 px-3 py-2 text-xs font-semibold text-blue-300 hover:bg-blue-900/40 transition cursor-pointer"
+                  >
+                    <span>Gmail</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => shareApp("more", built)}
+                    className="flex items-center justify-center gap-1.5 rounded-xl border border-blue-500/30 bg-[#070e20] px-3 py-2 text-xs font-semibold text-white hover:bg-blue-600/20 transition cursor-pointer"
+                  >
+                    <span>Copy / Share</span>
+                  </button>
                 </div>
-              )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-4 flex items-center justify-between gap-2 pt-3 border-t border-blue-500/20">
+                <button
+                  type="button"
+                  onClick={() => setPublishOpen(false)}
+                  className="rounded-full border border-blue-500/30 bg-[#070e20] px-4 py-2 text-xs font-medium text-blue-200 hover:text-white hover:bg-blue-600/20 transition cursor-pointer"
+                >
+                  Close
+                </button>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={`/p/${publishSlug || built.name.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "") || "my-app"}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => persistPublishedApp(built, publishSlug)}
+                    className="flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 transition cursor-pointer"
+                  >
+                    <ExternalLink className="size-3.5" /> New Tab
+                  </a>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const slug = await persistPublishedApp(built, publishSlug);
+                      setPublishOpen(false);
+                      navigate({ to: "/p/$appId", params: { appId: slug } });
+                    }}
+                    className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-600 px-5 py-2 text-xs font-bold text-white shadow hover:opacity-95 transition cursor-pointer"
+                  >
+                    <Rocket className="size-3.5" /> Open Live Web App
+                  </button>
+                </div>
+              </div>
             </div>
           </>
         )}
@@ -3625,6 +3498,11 @@ function BuildPage() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Horizontally Scrollable Feature Navigation Bar Downside of Prompt Input */}
+            <div className="w-full max-w-xl mx-auto pt-2 pb-1">
+              <FeatureNavBar activeTab="build" variant="inline" />
             </div>
 
             {/* Attached Context Preview Badges */}

@@ -9,6 +9,8 @@ export interface LocalThread {
   created_at: string;
   message_count?: number;
   user_key?: string;
+  isLocked?: boolean;
+  pin?: string;
 }
 
 export interface LocalMessage {
@@ -236,3 +238,41 @@ export function formatHistoryDate(dateStr: string): string {
     return "Recent";
   }
 }
+
+/** Lock a thread with a 4-digit PIN */
+export function lockLocalThread(threadId: string, pin: string): void {
+  const threads = getLocalThreads();
+  const updated = threads.map((t) =>
+    t.id === threadId ? { ...t, isLocked: true, pin } : t
+  );
+  saveLocalThreads(updated);
+}
+
+/** Unlock a thread by clearing the lock PIN */
+export function unlockLocalThread(threadId: string): void {
+  const threads = getLocalThreads();
+  const updated = threads.map((t) =>
+    t.id === threadId ? { ...t, isLocked: false, pin: undefined } : t
+  );
+  saveLocalThreads(updated);
+}
+
+/** Verify thread PIN */
+export function verifyThreadPin(threadId: string, pin: string): boolean {
+  const threads = getLocalThreads();
+  const t = threads.find((x) => x.id === threadId);
+  if (!t || !t.isLocked) return true;
+  return t.pin === pin;
+}
+
+/** Session unlock state (so user doesn't need to re-enter pin on every navigation in the same session) */
+export function isThreadUnlockedInSession(threadId: string): boolean {
+  if (typeof window === "undefined") return false;
+  return sessionStorage.getItem(`myaipro_unlocked_${threadId}`) === "true";
+}
+
+export function setThreadUnlockedInSession(threadId: string): void {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(`myaipro_unlocked_${threadId}`, "true");
+}
+

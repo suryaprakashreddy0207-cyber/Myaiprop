@@ -32,6 +32,10 @@ import {
   Monitor,
   Image as ImageIcon,
   Paperclip,
+  Database,
+  Bot,
+  Telescope,
+  Film,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { executeCoworkTask, type CoworkResponse, type CoworkAction } from "@/lib/cowork.functions";
@@ -705,7 +709,7 @@ export function AgentCoworkPage() {
                     </div>
 
                     {/* Summary Text */}
-                    <div className="rounded-3xl bg-zinc-950 border border-white/10 p-5 text-zinc-200 text-sm sm:text-base leading-relaxed shadow-xl">
+                    <div className="rounded-3xl bg-zinc-950 border border-white/10 p-5 text-white text-sm sm:text-base leading-relaxed shadow-xl font-normal">
                       <ReactMarkdown
                         components={{
                           code({ className, children, ...props }) {
@@ -1252,13 +1256,15 @@ export function AgentCoworkPage() {
                 </p>
                 <div className="grid grid-cols-1 gap-1">
                   {[
+                    { to: "/projects", label: "Sheets and Data", icon: Database },
+                    { to: "/agent", label: "Automation Agent", icon: Sparkles },
+                    { to: "/cowork", label: "My AI Co-worker", icon: Bot },
                     { to: "/chat", label: "AI Chat", icon: MessageSquare },
                     { to: "/voice", label: "Voice Assistant", icon: Mic },
-                    { to: "/projects", label: "Projects", icon: Folder },
                     { to: "/build", label: "No-Code Platform", icon: Code },
-                    { to: "/research", label: "Research Engine", icon: Sparkles },
+                    { to: "/research", label: "Deep Research", icon: Telescope },
                     { to: "/presentations", label: "Slide Presentations", icon: Monitor },
-                    { to: "/agent", label: "My AI Co-worker", icon: Sparkles },
+                    { to: "/video", label: "Video Studio", icon: Film },
                   ].map((sec) => (
                     <Link
                       key={sec.to}

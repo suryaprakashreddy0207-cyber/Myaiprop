@@ -270,3 +270,40 @@ export function TwilioLogo({ className = "size-6" }: { className?: string }) {
   );
 }
 
+/** Official Google Analytics 4 (GA4) Logo */
+export function GoogleAnalyticsLogo({ className = "size-6" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M22.5 19.5h-3a1.5 1.5 0 0 1-1.5-1.5v-12a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 24 6v12a1.5 1.5 0 0 1-1.5 1.5z" fill="#F9AB00" />
+      <path d="M13.5 19.5h-3a1.5 1.5 0 0 1-1.5-1.5V10.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5V18a1.5 1.5 0 0 1-1.5 1.5z" fill="#E37400" />
+      <circle cx="3" cy="16.5" r="3" fill="#E37400" />
+    </svg>
+  );
+}
+
+/** Official PostHog Analytics Logo */
+export function PostHogLogo({ className = "size-6" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+      <rect width="32" height="32" rx="8" fill="#F54E00" />
+      <path d="M7 16a9 9 0 0 1 18 0v4a5 5 0 0 1-5 5H12a5 5 0 0 1-5-5v-4z" fill="#FFFFFF" />
+      <circle cx="12" cy="15" r="1.5" fill="#1D1F27" />
+      <circle cx="20" cy="15" r="1.5" fill="#1D1F27" />
+      <path d="M14 18h4" stroke="#1D1F27" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Official Mixpanel Analytics Logo */
+export function MixpanelLogo({ className = "size-6" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <rect width="24" height="24" rx="6" fill="#7856FF" />
+      <circle cx="7" cy="12" r="2.5" fill="#FFFFFF" />
+      <circle cx="12" cy="8" r="2.5" fill="#FFFFFF" />
+      <circle cx="17" cy="15" r="2.5" fill="#FFFFFF" />
+    </svg>
+  );
+}
+
+

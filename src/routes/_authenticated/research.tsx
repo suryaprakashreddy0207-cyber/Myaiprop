@@ -53,6 +53,7 @@ function RadiantStarIcon({ className = "size-5" }: { className?: string }) {
 }
 import ReactMarkdown from "react-markdown";
 import { TopTabs } from "@/components/top-tabs";
+import { FeatureNavBar } from "@/components/feature-nav-bar";
 import {
   researchQuestions,
   researchSweep,
@@ -801,92 +802,14 @@ The findings indicate that **${topic}** has transitioned from an exploratory par
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(30,27,75,0.35)_0%,rgba(5,4,20,0.96)_80%)]" />
       </div>
 
-      {/* Top Mobile Status Bar (4:17 & Network/Battery indicators) */}
-      <div className="relative z-20 flex h-6 shrink-0 items-center justify-between px-6 pt-1 text-[11px] font-semibold text-stone-300/80">
-        <span>4:17</span>
-        <div className="flex items-center gap-1.5 text-[10px]">
-          <span className="rounded-[3px] border border-stone-400/50 px-1 text-[8px] font-bold tracking-tighter">VoLTE</span>
-          <div className="flex items-end gap-0.5 h-2.5">
-            <span className="w-0.5 h-1 bg-stone-300 rounded-[0.5px]" />
-            <span className="w-0.5 h-1.5 bg-stone-300 rounded-[0.5px]" />
-            <span className="w-0.5 h-2 bg-stone-300 rounded-[0.5px]" />
-            <span className="w-0.5 h-2.5 bg-stone-300 rounded-[0.5px]" />
-          </div>
-          <div className="size-2.5 rounded-full border border-stone-300 flex items-center justify-center">
-            <div className="size-1 rounded-full bg-stone-300" />
-          </div>
-        </div>
-      </div>
-
-      {/* Top Header: Radiant Star + My AI Pro + User Profile + Menu */}
-      <header className="relative z-20 flex h-14 shrink-0 items-center justify-between px-6 bg-transparent">
-        <div className="flex items-center gap-2.5">
-          <RadiantStarIcon className="size-8 drop-shadow-[0_0_15px_rgba(236,72,153,0.8)] animate-pulse" />
-          <h1 className="text-xl font-sans font-bold tracking-tight text-white flex items-center">
-            <span>My AI&nbsp;</span>
-            <span className="bg-gradient-to-r from-fuchsia-400 to-pink-500 bg-clip-text text-transparent">Pro</span>
-          </h1>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => navigate({ to: "/auth" })}
-            className="flex size-9 items-center justify-center rounded-full bg-white/10 border border-white/10 text-stone-200 hover:text-white hover:bg-white/20 transition cursor-pointer"
-            title="User Profile & Settings"
-          >
-            <User className="size-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => toast.info("My AI Pro Research v2.4 Active")}
-            className="flex size-9 items-center justify-center rounded-full text-stone-300 hover:text-white transition cursor-pointer"
-            title="More Options"
-          >
-            <MoreVertical className="size-5" />
-          </button>
-        </div>
+      {/* Top Horizontally Scrollable Feature Bar ("upside") to shift between all My AI Pro apps */}
+      <header className="relative z-30 pt-3 pb-2 w-full flex justify-center px-3 sm:px-6">
+        <FeatureNavBar activeTab="research" variant="top" />
       </header>
 
-      {/* Top Navigation Tabs Pill Bar: Co-code, Research (Active Glowing), Slides, Co-worker */}
-      <div className="relative z-20 px-4 sm:px-6 py-1.5">
-        <div className="mx-auto flex max-w-sm sm:max-w-md items-center justify-between rounded-full bg-[#0a0d26]/80 border border-blue-500/25 p-1 backdrop-blur-xl shadow-[0_0_20px_rgba(37,99,235,0.2)]">
-          <button
-            type="button"
-            onClick={() => navigate({ to: "/build" })}
-            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-stone-300 hover:text-white transition cursor-pointer"
-          >
-            <Code2 className="size-3.5 text-stone-400" />
-            <span>Co-code</span>
-          </button>
-          <button
-            type="button"
-            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-600 via-indigo-600 to-pink-500 px-4 py-1.5 text-xs font-bold text-white shadow-[0_0_22px_rgba(236,72,153,0.7)] ring-1 ring-pink-400/80 transition cursor-pointer"
-          >
-            <Telescope className="size-3.5 text-white" />
-            <span>Research</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate({ to: "/presentations" })}
-            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-stone-300 hover:text-white transition cursor-pointer"
-          >
-            <Monitor className="size-3.5 text-stone-400" />
-            <span>Slides</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate({ to: "/cowork" })}
-            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-stone-300 hover:text-white transition cursor-pointer"
-          >
-            <Bot className="size-3.5 text-stone-400" />
-            <span>Co-worker</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Center Hero Content matching exact screenshot */}
-      <div className="relative z-10 flex-1 overflow-y-auto px-6 py-4 flex flex-col items-center justify-center text-center">
-        <div className="mx-auto w-full max-w-sm space-y-5">
+      {/* Center Hero Content with Planetary Emblem & Centered Prompt Input */}
+      <div className="relative z-10 flex-1 overflow-y-auto px-4 sm:px-6 py-4 flex flex-col items-center justify-center text-center">
+        <div className="mx-auto w-full max-w-lg space-y-5">
           {/* Glowing Planetary Emblem with Tilted Orbital Ellipse Ring */}
           <div className="relative mx-auto flex items-center justify-center size-28 my-1">
             {/* Tilted neon cyan & pink orbital ring */}
@@ -905,9 +828,155 @@ The findings indicate that **${topic}** has transitioned from an exploratory par
             <h2 className="text-3xl sm:text-4xl font-sans tracking-tight font-extrabold text-white">
               Deep <span className="bg-gradient-to-r from-pink-500 via-fuchsia-500 to-rose-400 bg-clip-text text-transparent">research</span>
             </h2>
-            <p className="text-xs sm:text-sm text-stone-200/90 max-w-[280px] mx-auto leading-snug">
-              Ask a few questions, sweep live sources and get a detailed report.
+            <p className="text-xs sm:text-sm text-stone-200/90 max-w-sm mx-auto leading-snug">
+              Ask a few questions, sweep live sources and synthesize a cited research paper.
             </p>
+          </div>
+
+          {/* Prompt Input Place with Glowing Border & Attachments */}
+          <div className="w-full text-left space-y-2 pt-1">
+            {/* Active Context Badges */}
+            {(screenCaptured || folderName || attachments.length > 0) && (
+              <div className="flex flex-wrap items-center gap-1.5 px-2">
+                {screenCaptured && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/20 px-2.5 py-0.5 text-[10px] font-semibold text-blue-300 border border-blue-500/40">
+                    <Monitor className="size-3" /> Screen Captured
+                    <button onClick={() => setScreenCaptured(false)} className="ml-1 hover:text-red-400">
+                      <X className="size-2.5" />
+                    </button>
+                  </span>
+                )}
+                {folderName && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-semibold text-amber-300 border border-amber-500/40">
+                    <FolderUp className="size-3" /> {folderName}
+                    <button onClick={() => setFolderName(null)} className="ml-1 hover:text-red-400">
+                      <X className="size-2.5" />
+                    </button>
+                  </span>
+                )}
+                {attachments.map((file, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold text-stone-200 border border-white/20"
+                  >
+                    <Paperclip className="size-3" /> {file.name}
+                    <button onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))} className="ml-1 hover:text-red-400">
+                      <X className="size-2.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="relative flex items-center gap-2 rounded-full border border-blue-500/50 bg-[#080a22]/95 p-2 shadow-[0_0_30px_rgba(37,99,235,0.35),0_0_15px_rgba(236,72,153,0.2)] backdrop-blur-2xl">
+              {/* Circular Plus Button */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowPlusMenu((v) => !v)}
+                  className="flex size-9 shrink-0 items-center justify-center rounded-full border border-blue-400/40 bg-blue-500/10 text-blue-200 hover:text-white hover:bg-blue-500/20 transition cursor-pointer"
+                  title="Attach Screen, Folders, Images for Deep Research"
+                >
+                  <Plus className={cn("size-4 transition", showPlusMenu ? "rotate-45 text-pink-400" : "")} />
+                </button>
+
+                {/* Plus Popup Menu */}
+                {showPlusMenu && (
+                  <div className="absolute bottom-12 left-0 z-50 w-64 rounded-2xl border border-blue-500/30 bg-[#070920]/95 p-2 shadow-2xl backdrop-blur-2xl text-white animate-in fade-in-0 zoom-in-95">
+                    <div className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPlusMenu(false);
+                          handleShareScreen();
+                        }}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-200 hover:bg-blue-500/20 transition text-left cursor-pointer"
+                      >
+                        <Monitor className="size-4 text-pink-400" />
+                        <div>
+                          <div>Share Screen</div>
+                          <div className="text-[10px] text-stone-400">Capture live screen context</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPlusMenu(false);
+                          folderInputRef.current?.click();
+                        }}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-200 hover:bg-blue-500/20 transition text-left cursor-pointer"
+                      >
+                        <FolderUp className="size-4 text-amber-400" />
+                        <div>
+                          <div>Upload Folder</div>
+                          <div className="text-[10px] text-stone-400">Research whole code directory</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPlusMenu(false);
+                          fileInputRef.current?.click();
+                        }}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-200 hover:bg-blue-500/20 transition text-left cursor-pointer"
+                      >
+                        <ImageIcon className="size-4 text-emerald-400" />
+                        <div>
+                          <div>Upload Images & Files</div>
+                          <div className="text-[10px] text-stone-400">Attach charts, PDFs, documents</div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Hidden file inputs */}
+              <input
+                type="file"
+                ref={folderInputRef}
+                onChange={handleFolderSelect}
+                {...({ webkitdirectory: "", directory: "", multiple: true } as any)}
+                className="hidden"
+              />
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFilesSelect}
+                multiple
+                className="hidden"
+              />
+
+              <input
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && topic.trim() && !plan.isPending) {
+                    plan.mutate(topic.trim());
+                  }
+                }}
+                placeholder="Enter topic or question for deep research..."
+                className="flex-1 bg-transparent px-2.5 text-xs sm:text-sm text-white placeholder:text-blue-300/40 outline-none"
+              />
+
+              <button
+                type="button"
+                onClick={() => topic.trim() && plan.mutate(topic.trim())}
+                disabled={!topic.trim() || plan.isPending}
+                className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#00d2ff] via-[#3b82f6] to-[#ec4899] hover:brightness-110 px-5 py-2 text-xs font-bold text-white shadow-[0_0_22px_rgba(236,72,153,0.6)] disabled:opacity-40 transition active:scale-95 cursor-pointer shrink-0"
+              >
+                {plan.isPending ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <>
+                    <RadiantStarIcon className="size-3.5 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                    <span>Start</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* "Explore Sample Report" Button */}
@@ -926,7 +995,7 @@ The findings indicate that **${topic}** has transitioned from an exploratory par
           </button>
 
           {/* Popular Research Topics Pills */}
-          <div className="space-y-2 pt-1 w-full max-w-sm mx-auto">
+          <div className="space-y-2 pt-1 w-full max-w-md mx-auto">
             <p className="text-left text-[11px] font-medium text-stone-300 px-1">
               Popular research topics
             </p>
@@ -953,154 +1022,6 @@ The findings indicate that **${topic}** has transitioned from an exploratory par
           </div>
         </div>
       </div>
-
-      {/* Bottom Topic Input Bar with glowing neon pill border */}
-      <footer className="relative z-20 px-4 sm:px-6 pb-6 pt-1 bg-transparent">
-        <div className="mx-auto max-w-sm sm:max-w-md">
-          {/* Active Context Badges */}
-          {(screenCaptured || folderName || attachments.length > 0) && (
-            <div className="mb-2 flex flex-wrap items-center gap-1.5">
-              {screenCaptured && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/20 px-2.5 py-0.5 text-[10px] font-semibold text-blue-300 border border-blue-500/40">
-                  <Monitor className="size-3" /> Screen Captured
-                  <button onClick={() => setScreenCaptured(false)} className="ml-1 hover:text-red-400">
-                    <X className="size-2.5" />
-                  </button>
-                </span>
-              )}
-              {folderName && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-semibold text-amber-300 border border-amber-500/40">
-                  <FolderUp className="size-3" /> {folderName}
-                  <button onClick={() => setFolderName(null)} className="ml-1 hover:text-red-400">
-                    <X className="size-2.5" />
-                  </button>
-                </span>
-              )}
-              {attachments.map((file, i) => (
-                <span
-                  key={i}
-                  className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold text-stone-200 border border-white/20"
-                >
-                  <Paperclip className="size-3" /> {file.name}
-                  <button onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))} className="ml-1 hover:text-red-400">
-                    <X className="size-2.5" />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-
-          <div className="relative flex items-center gap-2 rounded-full border border-blue-500/50 bg-[#080a22]/95 px-2.5 py-1.5 shadow-[0_0_30px_rgba(37,99,235,0.35),0_0_15px_rgba(236,72,153,0.2)] backdrop-blur-2xl">
-            {/* Circular Plus Button */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowPlusMenu((v) => !v)}
-                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-blue-400/40 bg-blue-500/10 text-blue-200 hover:text-white hover:bg-blue-500/20 transition cursor-pointer"
-                title="Attach Screen, Folders, Images for Deep Research"
-              >
-                <Plus className={cn("size-4 transition", showPlusMenu ? "rotate-45 text-pink-400" : "")} />
-              </button>
-
-              {/* Plus Popup Menu */}
-              {showPlusMenu && (
-                <div className="absolute bottom-12 left-0 z-50 w-60 rounded-2xl border border-blue-500/30 bg-[#070920]/95 p-2 shadow-2xl backdrop-blur-2xl text-white animate-in fade-in-0 zoom-in-95">
-                  <div className="space-y-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPlusMenu(false);
-                        handleShareScreen();
-                      }}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-200 hover:bg-blue-500/20 transition text-left cursor-pointer"
-                    >
-                      <Monitor className="size-4 text-pink-400" />
-                      <div>
-                        <div>Share Screen</div>
-                        <div className="text-[10px] text-stone-400">Capture live screen context</div>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPlusMenu(false);
-                        folderInputRef.current?.click();
-                      }}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-200 hover:bg-blue-500/20 transition text-left cursor-pointer"
-                    >
-                      <FolderUp className="size-4 text-amber-400" />
-                      <div>
-                        <div>Upload Folder</div>
-                        <div className="text-[10px] text-stone-400">Research whole code directory</div>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPlusMenu(false);
-                        fileInputRef.current?.click();
-                      }}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-200 hover:bg-blue-500/20 transition text-left cursor-pointer"
-                    >
-                      <ImageIcon className="size-4 text-emerald-400" />
-                      <div>
-                        <div>Upload Images & Files</div>
-                        <div className="text-[10px] text-stone-400">Attach charts, PDFs, documents</div>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Hidden file inputs */}
-            <input
-              type="file"
-              ref={folderInputRef}
-              onChange={handleFolderSelect}
-              {...({ webkitdirectory: "", directory: "", multiple: true } as any)}
-              className="hidden"
-            />
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFilesSelect}
-              multiple
-              className="hidden"
-            />
-
-            <input
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && topic.trim() && !plan.isPending) {
-                  plan.mutate(topic.trim());
-                }
-              }}
-              placeholder="Topic to research..."
-              className="flex-1 bg-transparent px-2 text-xs sm:text-sm text-white placeholder:text-blue-300/40 outline-none"
-            />
-
-            <button
-              type="button"
-              onClick={() => topic.trim() && plan.mutate(topic.trim())}
-              disabled={!topic.trim() || plan.isPending}
-              className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#00d2ff] via-[#3b82f6] to-[#ec4899] hover:brightness-110 px-5 py-2 text-xs font-bold text-white shadow-[0_0_22px_rgba(236,72,153,0.6)] disabled:opacity-40 transition active:scale-95 cursor-pointer shrink-0"
-            >
-              {plan.isPending ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <>
-                  <RadiantStarIcon className="size-3.5 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                  <span>Start</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

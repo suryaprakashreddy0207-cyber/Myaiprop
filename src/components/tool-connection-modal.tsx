@@ -32,6 +32,9 @@ import {
   TwilioLogo,
   GoogleDriveLogo,
   GoogleSheetsLogo,
+  GoogleAnalyticsLogo,
+  PostHogLogo,
+  MixpanelLogo,
 } from "@/components/icons/app-logos";
 
 export interface ToolConnectionConfig {
@@ -110,6 +113,13 @@ export function ToolConnectionModal({
         return <GoogleSheetsLogo className="size-8" />;
       case "Twilio":
         return <TwilioLogo className="size-8" />;
+      case "Google Analytics (GA4)":
+      case "Google Analytics":
+        return <GoogleAnalyticsLogo className="size-8" />;
+      case "PostHog":
+        return <PostHogLogo className="size-8" />;
+      case "Mixpanel":
+        return <MixpanelLogo className="size-8" />;
       default:
         return <Key className="size-8 text-blue-400" />;
     }

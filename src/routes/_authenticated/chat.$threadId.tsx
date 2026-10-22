@@ -708,9 +708,9 @@ function ChatThread() {
   return (
     <>
       {/* Live search indicator banner */}
-      <div className="flex items-center justify-between border-b border-border/40 bg-surface/60 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur-sm">
-        <div className="flex items-center gap-1.5 font-medium text-ink">
-          <Globe className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+      <div className="flex items-center justify-between border-b border-blue-500/20 bg-[#081226]/90 px-4 py-2 text-xs text-blue-300 backdrop-blur-md">
+        <div className="flex items-center gap-1.5 font-medium text-blue-200">
+          <Globe className="size-3.5 text-blue-400" />
           <span>Live Google & Wikipedia Grounding Active</span>
         </div>
         <div className="flex items-center gap-2">
@@ -722,7 +722,7 @@ function ChatThread() {
                   clearMsgMut.mutate(threadId);
                 }
               }}
-              className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition cursor-pointer"
+              className="flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-medium text-blue-300/70 hover:bg-red-500/10 hover:text-red-400 transition cursor-pointer"
               title="Clear all messages in this chat"
             >
               <Trash2 className="size-3" />
@@ -730,11 +730,11 @@ function ChatThread() {
             </button>
           )}
           {attachments.length > 0 && (
-            <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-semibold text-brand">
+            <span className="rounded-full bg-blue-500/20 border border-blue-400/30 px-2 py-0.5 text-[10px] font-semibold text-blue-300">
               {attachments.length} image{attachments.length > 1 ? "s" : ""} attached
             </span>
           )}
-          <span className="text-[11px] opacity-70">My AI Pro 1.1</span>
+          <span className="text-[11px] text-blue-300/60 font-mono">My AI Pro 1.1</span>
         </div>
       </div>
 
@@ -742,29 +742,29 @@ function ChatThread() {
       <div
         ref={scrollRef}
         onPaste={handlePaste}
-        className="flex-1 overflow-y-auto px-4 py-6"
+        className="flex-1 overflow-y-auto px-4 py-6 bg-[#070e20] text-blue-100"
       >
         <div className="mx-auto flex max-w-2xl flex-col gap-6">
           {messages.length === 0 && (
             <div className="my-auto py-8 text-center max-w-xl mx-auto">
-              <div className="inline-flex size-14 items-center justify-center rounded-2xl bg-brand/10 text-brand shadow-xs mb-4">
+              <div className="inline-flex size-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30 mb-4">
                 <Sparkles className="size-7" />
               </div>
-              <h1 className="font-serif text-3xl font-bold tracking-tight text-ink">
+              <h1 className="font-serif text-3xl font-bold tracking-tight text-white">
                 My AI Pro
               </h1>
-              <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+              <p className="mx-auto mt-2 max-w-md text-sm text-blue-200/80 leading-relaxed">
                 How can I help you today? Chat freely, ask to write or debug code, attach images for deep visual analysis, or search real-time facts.
               </p>
 
               {!activeUserSession && (
-                <div className="mx-auto mt-4 inline-flex items-center gap-2 rounded-full border border-brand/25 bg-brand/5 px-3.5 py-1.5 text-xs text-muted-foreground shadow-2xs">
-                  <span className="inline-flex size-2 rounded-full bg-brand" />
+                <div className="mx-auto mt-4 inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-600/10 px-3.5 py-1.5 text-xs text-blue-200 shadow-xs">
+                  <span className="inline-flex size-2 rounded-full bg-blue-400 animate-pulse" />
                   <span>Guest session active</span>
-                  <span className="text-border">•</span>
+                  <span className="text-blue-500/40">•</span>
                   <Link
                     to="/auth"
-                    className="font-semibold text-brand underline underline-offset-2 hover:text-brand/80 transition"
+                    className="font-semibold text-blue-300 underline underline-offset-2 hover:text-white transition"
                   >
                     Sign in to save history
                   </Link>
@@ -776,12 +776,12 @@ function ChatThread() {
                 <button
                   type="button"
                   onClick={() => send("Write a TypeScript function to debounce an event handler with proper types and generic arguments")}
-                  className="group flex flex-col gap-1 rounded-xl border border-border/70 bg-surface/80 p-3 hover:border-brand/60 hover:bg-surface transition shadow-xs text-xs cursor-pointer"
+                  className="group flex flex-col gap-1 rounded-xl border border-blue-500/25 bg-[#0c1938]/80 p-3 hover:border-blue-400/60 hover:bg-[#12234e] transition shadow-md shadow-blue-950/30 text-xs cursor-pointer"
                 >
-                  <span className="font-semibold text-ink group-hover:text-brand flex items-center gap-1.5">
+                  <span className="font-semibold text-blue-300 group-hover:text-white flex items-center gap-1.5">
                     <span>💻</span> Write Code
                   </span>
-                  <span className="text-muted-foreground text-[11px] line-clamp-1">
+                  <span className="text-blue-200/70 text-[11px] line-clamp-1">
                     TypeScript debounce helper with generic types
                   </span>
                 </button>
@@ -789,12 +789,12 @@ function ChatThread() {
                 <button
                   type="button"
                   onClick={() => send("Write a Python script for a simple REST API using FastAPI with request validation")}
-                  className="group flex flex-col gap-1 rounded-xl border border-border/70 bg-surface/80 p-3 hover:border-brand/60 hover:bg-surface transition shadow-xs text-xs cursor-pointer"
+                  className="group flex flex-col gap-1 rounded-xl border border-blue-500/25 bg-[#0c1938]/80 p-3 hover:border-blue-400/60 hover:bg-[#12234e] transition shadow-md shadow-blue-950/30 text-xs cursor-pointer"
                 >
-                  <span className="font-semibold text-ink group-hover:text-brand flex items-center gap-1.5">
+                  <span className="font-semibold text-blue-300 group-hover:text-white flex items-center gap-1.5">
                     <span>⚡</span> Python API
                   </span>
-                  <span className="text-muted-foreground text-[11px] line-clamp-1">
+                  <span className="text-blue-200/70 text-[11px] line-clamp-1">
                     FastAPI REST backend with validation
                   </span>
                 </button>
@@ -804,12 +804,12 @@ function ChatThread() {
                   onClick={() => {
                     fileInputRef.current?.click();
                   }}
-                  className="group flex flex-col gap-1 rounded-xl border border-border/70 bg-surface/80 p-3 hover:border-brand/60 hover:bg-surface transition shadow-xs text-xs cursor-pointer"
+                  className="group flex flex-col gap-1 rounded-xl border border-blue-500/25 bg-[#0c1938]/80 p-3 hover:border-blue-400/60 hover:bg-[#12234e] transition shadow-md shadow-blue-950/30 text-xs cursor-pointer"
                 >
-                  <span className="font-semibold text-ink group-hover:text-brand flex items-center gap-1.5">
+                  <span className="font-semibold text-blue-300 group-hover:text-white flex items-center gap-1.5">
                     <span>🖼️</span> Analyze Image
                   </span>
-                  <span className="text-muted-foreground text-[11px] line-clamp-1">
+                  <span className="text-blue-200/70 text-[11px] line-clamp-1">
                     Upload a photo, screenshot, or diagram to inspect
                   </span>
                 </button>
@@ -817,12 +817,12 @@ function ChatThread() {
                 <button
                   type="button"
                   onClick={() => send("Explain how modern transformers work in machine learning with a clear mental model")}
-                  className="group flex flex-col gap-1 rounded-xl border border-border/70 bg-surface/80 p-3 hover:border-brand/60 hover:bg-surface transition shadow-xs text-xs cursor-pointer"
+                  className="group flex flex-col gap-1 rounded-xl border border-blue-500/25 bg-[#0c1938]/80 p-3 hover:border-blue-400/60 hover:bg-[#12234e] transition shadow-md shadow-blue-950/30 text-xs cursor-pointer"
                 >
-                  <span className="font-semibold text-ink group-hover:text-brand flex items-center gap-1.5">
+                  <span className="font-semibold text-blue-300 group-hover:text-white flex items-center gap-1.5">
                     <span>🧠</span> Explain Concepts
                   </span>
-                  <span className="text-muted-foreground text-[11px] line-clamp-1">
+                  <span className="text-blue-200/70 text-[11px] line-clamp-1">
                     How AI transformers and attention work
                   </span>
                 </button>
@@ -837,14 +837,14 @@ function ChatThread() {
                 {Array.isArray(m.images) && m.images.length > 0 ? (
                   <div className={cn(
                     "grid gap-1.5 max-w-[85%]",
-                    m.images.length === 1 ? "grid-cols-1" : m.images.length === 2 ? "grid-cols-2" : "grid-cols-3"
+                    m.images.length === 1 ? "grid-cols-1" : m.images.length === 2 ? "grid-cols-2" : "grid-cols-3",
                   )}>
                     {m.images.map((imgUrl, idx) => (
                       <img
                         key={`user-img-${m.id || mIdx}-${idx}`}
                         src={imgUrl}
                         alt={`attachment-${idx}`}
-                        className="max-h-48 w-full rounded-xl object-cover shadow-sm ring-1 ring-black/5"
+                        className="max-h-48 w-full rounded-xl object-cover shadow-md ring-1 ring-blue-500/30"
                       />
                     ))}
                   </div>
@@ -852,7 +852,7 @@ function ChatThread() {
                   <img
                     src={m.image_url}
                     alt="attachment"
-                    className="max-w-[75%] rounded-2xl object-cover shadow-sm ring-1 ring-black/5"
+                    className="max-w-[75%] rounded-2xl object-cover shadow-md ring-1 ring-blue-500/30"
                   />
                 ) : null}
 
@@ -860,12 +860,12 @@ function ChatThread() {
                   <div className="flex max-w-[85%] items-start gap-1">
                     <button
                       onClick={() => delMsgMut.mutate(m.id)}
-                      className="mt-1 rounded-md p-1 text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
+                      className="mt-1 rounded-md p-1 text-blue-300/40 opacity-0 transition group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-400 cursor-pointer"
                       aria-label="Delete message"
                     >
                       <Trash2 className="size-3.5" />
                     </button>
-                    <div className="rounded-[20px] rounded-tr-md bg-brand px-4 py-2.5 text-sm leading-relaxed text-brand-foreground">
+                    <div className="rounded-[20px] rounded-tr-md bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2.5 text-sm leading-relaxed text-white shadow-md shadow-blue-500/20">
                       {m.content}
                     </div>
                   </div>
@@ -894,7 +894,7 @@ function ChatThread() {
                   ) : (
                     <div className={cn(
                       "grid gap-3 w-full max-w-2xl",
-                      m.images.length === 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                      m.images.length === 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
                     )}>
                       {m.images.map((imgUrl, imgIdx) => (
                         <ChatImageCard
@@ -928,7 +928,7 @@ function ChatThread() {
                   />
                 ) : null}
                 {m.content ? (
-                  <div className="max-w-[90%]">
+                  <div className="max-w-[90%] text-blue-100">
                     <RichMessage content={m.content} />
                   </div>
                 ) : null}
@@ -937,14 +937,14 @@ function ChatThread() {
                   {m.content && !m.image_url && (
                     <button
                       onClick={() => speak(m.content)}
-                      className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-muted-foreground transition hover:text-ink"
+                      className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-blue-300/70 transition hover:text-white hover:bg-blue-600/20 cursor-pointer"
                     >
                       <Volume2 className="size-3" /> Listen
                     </button>
                   )}
                   <button
                     onClick={() => delMsgMut.mutate(m.id)}
-                    className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:text-destructive"
+                    className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-blue-300/40 opacity-0 transition group-hover:opacity-100 hover:text-red-400 hover:bg-red-500/10 cursor-pointer"
                     aria-label="Delete message"
                   >
                     <Trash2 className="size-3" /> Delete
@@ -955,36 +955,36 @@ function ChatThread() {
           )}
 
           {sending && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="inline-flex size-2 animate-pulse rounded-full bg-brand" />
+            <div className="flex items-center gap-2 text-sm text-blue-300">
+              <span className="inline-flex size-2 animate-pulse rounded-full bg-blue-400 shadow-[0_0_8px_#3b82f6]" />
               Thinking with live search & vision…
             </div>
           )}
         </div>
       </div>
 
-      {/* Composer */}
-      <footer className="border-t border-black/5 bg-canvas/90 px-4 pb-6 pt-3 backdrop-blur-md">
+      {/* Composer - Classic Midnight Blue Theme */}
+      <footer className="border-t border-blue-500/20 bg-[#081226]/95 px-4 pb-6 pt-3 backdrop-blur-xl">
         {/* Attached images carousel/strip */}
         {attachments.length > 0 && (
-          <div className="mx-auto mb-3 flex max-w-2xl items-center gap-2 overflow-x-auto rounded-2xl bg-surface p-2 text-xs shadow-sm ring-1 ring-black/5">
+          <div className="mx-auto mb-3 flex max-w-2xl items-center gap-2 overflow-x-auto rounded-2xl bg-[#0c1938] border border-blue-500/30 p-2 text-xs shadow-md">
             {attachments.map((att) => (
               <div key={att.id} className="relative group shrink-0">
                 <img
                   src={att.dataUrl}
                   alt={att.name}
-                  className="size-16 rounded-lg object-cover ring-1 ring-border"
+                  className="size-16 rounded-xl object-cover ring-1 ring-blue-500/40"
                 />
                 <button
                   type="button"
                   onClick={() => removeAttachment(att.id)}
-                  className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-destructive text-white shadow transition hover:scale-110"
+                  className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-red-600 text-white shadow transition hover:scale-110"
                 >
                   <X className="size-3" />
                 </button>
               </div>
             ))}
-            <label className="flex size-16 shrink-0 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border/80 text-muted-foreground hover:border-brand hover:text-brand">
+            <label className="flex size-16 shrink-0 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-blue-500/40 text-blue-300/70 hover:border-blue-400 hover:text-white">
               <Plus className="size-4" />
               <span className="text-[9px] font-medium">Add more</span>
               <input
@@ -1010,14 +1010,14 @@ function ChatThread() {
 
         {/* Plus Action Popup Menu */}
         {plusMenuOpen && (
-          <div className="mx-auto mb-2 flex max-w-2xl flex-wrap items-center gap-2 rounded-2xl bg-surface p-2.5 shadow-xl ring-1 ring-black/10 border border-border/80 animate-in slide-in-from-bottom-2">
+          <div className="mx-auto mb-2 flex max-w-2xl flex-wrap items-center gap-2 rounded-2xl bg-[#0c1938] p-2.5 shadow-2xl border border-blue-500/30 animate-in slide-in-from-bottom-2">
             <button
               type="button"
               onClick={() => {
                 setPlusMenuOpen(false);
                 setCameraOpen(true);
               }}
-              className="flex items-center gap-1.5 rounded-xl bg-brand/10 px-3 py-2 text-xs font-semibold text-brand hover:bg-brand/20 transition cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl bg-blue-600/20 border border-blue-500/30 px-3 py-2 text-xs font-semibold text-blue-300 hover:bg-blue-600/30 hover:text-white transition cursor-pointer"
             >
               <Camera className="size-4" />
               <span>Camera</span>
@@ -1029,9 +1029,9 @@ function ChatThread() {
                 setPlusMenuOpen(false);
                 fileInputRef.current?.click();
               }}
-              className="flex items-center gap-1.5 rounded-xl border border-border/80 bg-canvas px-3 py-2 text-xs font-semibold text-ink hover:bg-surface transition cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl border border-blue-500/30 bg-[#070e20] px-3 py-2 text-xs font-semibold text-blue-200 hover:bg-blue-600/20 hover:text-white transition cursor-pointer"
             >
-              <Paperclip className="size-4 text-muted-foreground" />
+              <Paperclip className="size-4 text-blue-400" />
               <span>Files / Photos</span>
             </button>
 
@@ -1044,8 +1044,8 @@ function ChatThread() {
               className={cn(
                 "flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition cursor-pointer",
                 imageMode
-                  ? "bg-brand text-brand-foreground shadow-xs"
-                  : "bg-surface text-muted-foreground hover:text-ink border border-border/70"
+                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25"
+                  : "bg-[#070e20] text-blue-200 hover:text-white border border-blue-500/30",
               )}
             >
               <ImageIcon className="size-4" />
@@ -1059,11 +1059,11 @@ function ChatThread() {
                 setInput((prev) =>
                   prev
                     ? `${prev}\n\nWrite a complete production-ready code in TypeScript/Python: `
-                    : "Write a complete production-ready code in TypeScript/Python: "
+                    : "Write a complete production-ready code in TypeScript/Python: ",
                 );
                 textareaRef.current?.focus();
               }}
-              className="flex items-center gap-1.5 rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/70 dark:bg-blue-950/30 px-3 py-2 text-xs font-semibold text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-600/15 px-3 py-2 text-xs font-semibold text-blue-300 hover:bg-blue-600/30 hover:text-white transition cursor-pointer"
               title="Code Assistant prompt helper"
             >
               <Code className="size-4" />
@@ -1076,7 +1076,7 @@ function ChatThread() {
                 setPlusMenuOpen(false);
                 setNotesModalOpen(true);
               }}
-              className="flex items-center gap-1.5 rounded-xl border border-amber-200 dark:border-amber-800/40 bg-amber-50/70 dark:bg-amber-950/20 px-3 py-2 text-xs font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition cursor-pointer"
               title="Open Notes & Scratchpad"
             >
               <StickyNote className="size-4" />
@@ -1086,7 +1086,7 @@ function ChatThread() {
             <Link
               to="/auth"
               onClick={() => setPlusMenuOpen(false)}
-              className="flex items-center gap-1.5 rounded-xl border border-purple-200 dark:border-purple-900/50 bg-purple-50/70 dark:bg-purple-950/30 px-3 py-2 text-xs font-semibold text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 transition cursor-pointer"
               title="Sign in or register account"
             >
               <LogIn className="size-4" />
@@ -1096,7 +1096,7 @@ function ChatThread() {
             <button
               type="button"
               onClick={() => setPlusMenuOpen(false)}
-              className="ml-auto rounded-lg p-1.5 text-muted-foreground hover:bg-canvas hover:text-ink transition cursor-pointer"
+              className="ml-auto rounded-lg p-1.5 text-blue-300/70 hover:bg-blue-600/20 hover:text-white transition cursor-pointer"
               aria-label="Close menu"
             >
               <X className="size-4" />
@@ -1106,20 +1106,20 @@ function ChatThread() {
 
         {/* Image Mode & Speed Engine Configuration Toolbar */}
         {imageMode && (
-          <div className="mx-auto mb-2 flex max-w-2xl flex-col gap-2 rounded-2xl bg-surface p-2.5 shadow-md border border-brand/30 animate-in slide-in-from-bottom-2">
+          <div className="mx-auto mb-2 flex max-w-2xl flex-col gap-2 rounded-2xl bg-[#0c1938] p-2.5 shadow-md border border-blue-500/30 animate-in slide-in-from-bottom-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-ink flex items-center gap-1.5">
-                <Sparkles className="size-3.5 text-brand" />
+              <span className="font-semibold text-white flex items-center gap-1.5">
+                <Sparkles className="size-3.5 text-blue-400" />
                 Image Creation & Editing Active
               </span>
-              <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-semibold text-brand">
+              <span className="rounded-full bg-blue-500/20 border border-blue-400/30 px-2 py-0.5 text-[10px] font-semibold text-blue-300">
                 ⚡ High Speed Creative Engine
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-border/60">
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-blue-500/20">
               <div className="flex items-center gap-1 text-[11px]">
-                <span className="text-muted-foreground mr-1">Aspect:</span>
+                <span className="text-blue-300/70 mr-1">Aspect:</span>
                 {(["1:1", "16:9", "9:16", "4:3"] as const).map((r) => (
                   <button
                     key={r}
@@ -1128,8 +1128,8 @@ function ChatThread() {
                     className={cn(
                       "rounded-lg px-2 py-0.5 font-medium transition text-[10px]",
                       imageAspectRatio === r
-                        ? "bg-brand text-brand-foreground font-semibold shadow-xs"
-                        : "bg-canvas text-muted-foreground hover:text-ink"
+                        ? "bg-blue-600 text-white font-semibold shadow-xs"
+                        : "bg-[#070e20] text-blue-300/70 hover:text-white",
                     )}
                   >
                     {r}
@@ -1138,7 +1138,7 @@ function ChatThread() {
               </div>
 
               <div className="flex items-center gap-1 text-[11px] overflow-x-auto">
-                <span className="text-muted-foreground mr-1">Style:</span>
+                <span className="text-blue-300/70 mr-1">Style:</span>
                 {["Photorealistic", "Anime", "Cyberpunk", "3D Render", "Watercolor", "Cinematic"].map((st) => (
                   <button
                     key={st}
@@ -1147,8 +1147,8 @@ function ChatThread() {
                     className={cn(
                       "rounded-lg px-2 py-0.5 font-medium transition text-[10px] shrink-0",
                       imageStyle === st
-                        ? "bg-brand text-brand-foreground font-semibold shadow-xs"
-                        : "bg-canvas text-muted-foreground hover:text-ink"
+                        ? "bg-blue-600 text-white font-semibold shadow-xs"
+                        : "bg-[#070e20] text-blue-300/70 hover:text-white",
                     )}
                   >
                     {st}
@@ -1159,15 +1159,15 @@ function ChatThread() {
           </div>
         )}
 
-        <div className="mx-auto flex max-w-2xl items-end gap-2 rounded-[24px] bg-surface p-2 ring-1 ring-black/5">
+        <div className="mx-auto flex max-w-2xl items-end gap-2 rounded-[24px] bg-[#0c1938] border border-blue-500/30 p-2 shadow-inner">
           <button
             type="button"
             onClick={() => setPlusMenuOpen((v) => !v)}
             className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-full transition",
+              "flex size-9 shrink-0 items-center justify-center rounded-full transition cursor-pointer",
               plusMenuOpen
-                ? "bg-brand text-brand-foreground"
-                : "text-muted-foreground hover:text-ink hover:bg-canvas"
+                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
+                : "text-blue-300/70 hover:text-white hover:bg-blue-600/20",
             )}
             title="Add attachments, take photo with camera, or toggle image mode"
           >
@@ -1177,20 +1177,20 @@ function ChatThread() {
           <button
             type="button"
             onClick={() => setCameraOpen(true)}
-            className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:text-ink hover:bg-canvas transition"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full text-blue-300/70 hover:text-white hover:bg-blue-600/20 transition cursor-pointer"
             title="Take photo with device camera"
           >
-            <Camera className="size-4 text-brand" />
+            <Camera className="size-4 text-blue-400" />
           </button>
 
           <button
             type="button"
             onClick={() => setImageMode((v) => !v)}
             className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-full transition",
+              "flex size-9 shrink-0 items-center justify-center rounded-full transition cursor-pointer",
               imageMode
-                ? "bg-brand text-brand-foreground"
-                : "text-muted-foreground hover:text-ink",
+                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
+                : "text-blue-300/70 hover:text-white hover:bg-blue-600/20",
             )}
             title={
               imageMode ? "Image mode on" : "Generate image with next message"
@@ -1216,17 +1216,17 @@ function ChatThread() {
                   ? "Ask anything about the attached images / photo…"
                   : "Ask My AI anything (with Google images, live web & vision)…"
             }
-            className="flex-1 resize-none border-none bg-transparent px-1 py-2 text-sm outline-none placeholder:text-muted-foreground"
+            className="flex-1 resize-none border-none bg-transparent px-1 py-2 text-sm outline-none text-white placeholder:text-blue-300/40"
             style={{ maxHeight: 140 }}
           />
           <button
             type="button"
             onClick={toggleMic}
             className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-full transition",
+              "flex size-9 shrink-0 items-center justify-center rounded-full transition cursor-pointer",
               listening
-                ? "bg-destructive text-white"
-                : "text-muted-foreground hover:text-ink",
+                ? "bg-red-600 text-white animate-pulse"
+                : "text-blue-300/70 hover:text-white hover:bg-blue-600/20",
             )}
             aria-label="Voice input"
           >
@@ -1240,7 +1240,7 @@ function ChatThread() {
             type="button"
             onClick={() => send()}
             disabled={sending || (!input.trim() && attachments.length === 0)}
-            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-ink text-white transition hover:opacity-90 disabled:opacity-40"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/30 transition hover:brightness-110 disabled:opacity-40 cursor-pointer"
             aria-label="Send"
           >
             <Send className="size-4" />
@@ -1251,17 +1251,17 @@ function ChatThread() {
             <button
               onClick={() => setResearchMode((v) => !v)}
               className={cn(
-                "flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest transition",
+                "flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest transition cursor-pointer",
                 researchMode
-                  ? "bg-brand text-brand-foreground"
-                  : "text-muted-foreground hover:text-ink",
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-blue-300/70 hover:text-white hover:bg-blue-600/20",
               )}
               title="Deep web research with sources"
             >
               <Search className="size-3" /> Research
             </button>
           </div>
-          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          <p className="text-[10px] uppercase tracking-widest text-blue-300/60 font-mono">
             {imageMode
               ? "Image Mode"
               : researchMode
@@ -1280,24 +1280,24 @@ function ChatThread() {
 
       {/* Quick Notes & Scratchpad Modal */}
       {notesModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-lg rounded-2xl border border-border/80 bg-surface p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-border/60 pb-3">
-              <div className="flex items-center gap-2 font-semibold text-ink">
-                <StickyNote className="size-4 text-amber-500" />
-                <span>Notes & Scratchpad</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-lg rounded-2xl border border-blue-500/30 bg-[#0c1938] p-5 shadow-2xl space-y-4 text-white">
+            <div className="flex items-center justify-between border-b border-blue-500/20 pb-3">
+              <div className="flex items-center gap-2 font-semibold text-white">
+                <StickyNote className="size-4 text-amber-400" />
+                <span>Notes &amp; Scratchpad</span>
               </div>
               <button
                 type="button"
                 onClick={() => setNotesModalOpen(false)}
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-canvas hover:text-ink transition cursor-pointer"
+                className="rounded-lg p-1.5 text-blue-300 hover:bg-blue-600/20 hover:text-white transition cursor-pointer"
                 aria-label="Close modal"
               >
                 <X className="size-4" />
               </button>
             </div>
 
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-blue-200/80">
               Jot down thoughts, code snippets, or prompt ideas. Notes are automatically saved locally.
             </p>
 
@@ -1313,11 +1313,11 @@ function ChatThread() {
               }}
               rows={8}
               placeholder="Type your notes or prompt ideas here..."
-              className="w-full rounded-xl border border-border/80 bg-canvas p-3 text-xs text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand font-mono leading-relaxed"
+              className="w-full rounded-xl border border-blue-500/30 bg-[#070e20] p-3 text-xs text-white placeholder-blue-300/40 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 font-mono leading-relaxed"
             />
 
             <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
-              <div className="text-[11px] text-muted-foreground">
+              <div className="text-[11px] text-blue-300/70">
                 {scratchpadText.length} characters
               </div>
               <div className="flex items-center gap-2">
@@ -1328,7 +1328,7 @@ function ChatThread() {
                     toast.success("Notes copied to clipboard!");
                   }}
                   disabled={!scratchpadText.trim()}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-ink hover:bg-canvas transition disabled:opacity-40 cursor-pointer"
+                  className="rounded-lg border border-blue-500/30 bg-blue-600/20 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600/30 transition disabled:opacity-40 cursor-pointer"
                 >
                   Copy
                 </button>
@@ -1341,7 +1341,7 @@ function ChatThread() {
                     toast.success("Notes inserted into prompt!");
                   }}
                   disabled={!scratchpadText.trim()}
-                  className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-brand-foreground hover:bg-brand/90 transition disabled:opacity-40 cursor-pointer"
+                  className="rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-md hover:from-blue-500 hover:to-indigo-500 transition disabled:opacity-40 cursor-pointer"
                 >
                   Insert into Prompt
                 </button>
