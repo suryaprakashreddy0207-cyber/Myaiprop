@@ -116,3 +116,157 @@ export function SlackLogo({ className = "size-6" }: { className?: string }) {
     </svg>
   );
 }
+
+/** Latest Official Google Maps Logo (Official 4-Color Pin) */
+export function GoogleMapsLogo({ className = "size-6" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 200 300" xmlns="http://www.w3.org/2000/svg">
+      {/* Top red arch */}
+      <path
+        d="M100 0C44.8 0 0 44.8 0 100c0 28.5 12 54.2 31.3 72.3L100 300l68.7-127.7C188 154.2 200 128.5 200 100 200 44.8 155.2 0 100 0z"
+        fill="#EA4335"
+      />
+      {/* Blue right accent */}
+      <path
+        d="M100 0c26.5 0 50.6 10.3 68.6 27.1L135 60.7C125 52.8 113 48 100 48c-28.7 0-52 23.3-52 52 0 12.8 4.7 24.6 12.4 33.7l-34.1 34.1C10.1 149.8 0 126.1 0 100 0 44.8 44.8 0 100 0z"
+        fill="#4285F4"
+      />
+      {/* Green bottom curve */}
+      <path
+        d="M100 300l-68.7-127.7C24.3 165.6 19.3 157.3 15 148l45.4-26.2c3.5 6.2 8.3 11.6 14.1 15.6L100 300z"
+        fill="#34A853"
+      />
+      {/* Yellow inner segment */}
+      <path
+        d="M100 48c28.7 0 52 23.3 52 52 0 13.5-5.2 25.8-13.6 35l30.3 30.3c19.3-20.2 31.3-47.5 31.3-77.3 0-55.2-44.8-100-100-100v60z"
+        fill="#FBBC04"
+      />
+      {/* White center circle */}
+      <circle cx="100" cy="100" r="38" fill="#FFFFFF" />
+      {/* Red inner pin center */}
+      <circle cx="100" cy="100" r="22" fill="#D93025" />
+    </svg>
+  );
+}
+
+/** Official GitHub Octocat Logo */
+export function GitHubLogo({ className = "size-6" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg">
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.36 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+/** Official Stripe Logo */
+export function StripeLogo({ className = "size-6" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <rect width="40" height="40" rx="10" fill="#635BFF" />
+      <path
+        d="M19.4 15.6c0-1.4 1.2-2.2 3.1-2.2 2.6 0 5.2.9 7 1.9V9.6c-2.1-.9-4.7-1.4-7-1.4-6.2 0-10.4 3.2-10.4 8.7 0 8.4 11.5 7.1 11.5 10.7 0 1.7-1.5 2.3-3.6 2.3-3.1 0-6.1-1.3-8.2-2.5v5.8c2.4 1.1 5.3 1.7 8.2 1.7 6.4 0 10.9-3.2 10.9-8.9 0-9.1-11.5-7.4-11.5-10.8z"
+        fill="#FFFFFF"
+      />
+    </svg>
+  );
+}
+
+/** Official Supabase Logo */
+export function SupabaseLogo({ className = "size-6" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 109 113" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M65.4 112.5C62.7 114.7 58.7 113 58.4 109.5L53.7 54.3H102.8C107.5 54.3 109.9 59.9 106.6 63.3L65.4 112.5Z"
+        fill="#3ECF8E"
+      />
+      <path
+        d="M43.7 0.5C46.3 -1.7 50.3 0 50.7 3.5L55.4 58.7H6.2C1.5 58.7 -0.9 53.1 2.4 49.7L43.7 0.5Z"
+        fill="#249361"
+      />
+    </svg>
+  );
+}
+
+/** Official Firebase Logo */
+export function FirebaseLogo({ className = "size-6" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 116 160" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M21.2 92.5L2.3 131.7C-1 138.5 4.3 146 11.9 144.5L58.1 135.8 21.2 92.5z"
+        fill="#FFC400"
+      />
+      <path
+        d="M62.6 44.9l-18.7-35.4c-3.1-5.9-11.7-4.7-13.1 1.8L.8 132.8l20.4-40.3 41.4-47.6z"
+        fill="#FF9100"
+      />
+      <path
+        d="M58.1 135.8L11.9 144.5c-7.6 1.4-12.9-6.1-9.6-12.8L21.2 92.5l36.9 43.3z"
+        fill="#FFC400"
+      />
+      <path
+        d="M115.1 132.8L93.7 19.3c-1.1-6.2-9.2-8.3-13.2-3.4L.8 132.8l57.3 32.1c5.2 2.9 11.6 2.9 16.8 0l40.2-22.1z"
+        fill="#DD2C00"
+      />
+    </svg>
+  );
+}
+
+/** Official OpenAI Logo */
+export function OpenAILogo({ className = "size-6" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2a4 4 0 0 0-3.8 2.7L7.5 7.4A4 4 0 0 0 4.1 10a4 4 0 0 0 .9 5.3l1.8 1.3a4 4 0 0 0 2 3.9 4 4 0 0 0 5.4-.8l1.3-1.8a4 4 0 0 0 4.4-.7 4 4 0 0 0 .8-5.3l-1.8-1.3a4 4 0 0 0-.8-4.4 4 4 0 0 0-4.4-.8L12 2z" />
+      <path d="M12 8.5v7" />
+      <path d="M8.5 10l7 4" />
+      <path d="M8.5 14l7-4" />
+    </svg>
+  );
+}
+
+/** Official Shopify Logo */
+export function ShopifyLogo({ className = "size-6" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 109 123" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M93.8 22.3c-.5-.4-1.2-.4-1.7-.1l-7.7 4.2c-.4.2-.9.1-1.2-.2L74.8 13c-.9-1.2-2.5-1.6-3.8-1-1.3.6-2 2-1.7 3.4l2.4 12.3c.1.5-.1 1-.5 1.3L48.1 41.5c-.8.5-1.9.4-2.5-.4l-7.4-9.8c-.8-1.1-2.3-1.4-3.5-.8-1.2.6-1.8 2-1.5 3.3l6.5 28.5c.2.8.8 1.4 1.6 1.5l45.4 6.8c.8.1 1.6-.4 1.8-1.2l9.7-44.5c.2-1.1-.3-2.1-1.4-2.6z"
+        fill="#95BF47"
+      />
+      <path
+        d="M62.3 0c-1.3 0-2.6.4-3.7 1.1L35.8 14.5c-3.1 1.8-5.1 5.2-5.1 8.8v64.6c0 3.6 2 7 5.1 8.8l22.8 13.4c2.3 1.3 5.1 1.3 7.4 0l22.8-13.4c3.1-1.8 5.1-5.2 5.1-8.8V23.3c0-3.6-2-7-5.1-8.8L66 1.1C64.9.4 63.6 0 62.3 0z"
+        fill="#5E8E3E"
+      />
+    </svg>
+  );
+}
+
+/** Official Notion Logo */
+export function NotionLogo({ className = "size-6" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100" height="100" rx="20" fill="#000000" />
+      <path
+        d="M22 28v44h12V46.5L59 72h19V28H66v25.5L41 28H22z"
+        fill="#FFFFFF"
+      />
+    </svg>
+  );
+}
+
+/** Official Twilio Logo */
+export function TwilioLogo({ className = "size-6" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="30" cy="30" r="30" fill="#F22F46" />
+      <circle cx="20" cy="20" r="6" fill="#FFFFFF" />
+      <circle cx="40" cy="20" r="6" fill="#FFFFFF" />
+      <circle cx="20" cy="40" r="6" fill="#FFFFFF" />
+      <circle cx="40" cy="40" r="6" fill="#FFFFFF" />
+    </svg>
+  );
+}
+

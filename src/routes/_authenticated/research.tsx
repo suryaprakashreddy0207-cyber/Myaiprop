@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -27,7 +27,30 @@ import {
   ListTree,
   Menu,
   Compass,
+  User,
+  MoreVertical,
+  Code2,
+  Bot,
+  ArrowRight,
 } from "lucide-react";
+
+function RadiantStarIcon({ className = "size-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="radiantStarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#38bdf8" />
+          <stop offset="45%" stopColor="#818cf8" />
+          <stop offset="100%" stopColor="#ec4899" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M12 2C12 7.523 7.523 12 2 12C7.523 12 12 16.477 12 22C12 16.477 16.477 12 22 12C16.477 12 12 7.523 12 2Z"
+        fill="url(#radiantStarGrad)"
+      />
+    </svg>
+  );
+}
 import ReactMarkdown from "react-markdown";
 import { TopTabs } from "@/components/top-tabs";
 import {
@@ -192,6 +215,7 @@ function gapsFrom(notes: string): string[] {
 }
 
 function ResearchPage() {
+  const navigate = useNavigate();
   const qFn = useServerFn(researchQuestions);
   const sweepFn = useServerFn(researchSweep);
   const synthFn = useServerFn(synthesizeResearch);
@@ -744,143 +768,286 @@ The findings indicate that **${topic}** has transitioned from an exploratory par
   }
 
   return (
-    <div className="flex h-[100dvh] flex-col bg-canvas font-sans text-ink">
-      <header className="flex h-14 shrink-0 items-center justify-center border-b border-black/5 px-4">
-        <h1 className="font-serif text-xl">Research</h1>
-      </header>
-      <TopTabs />
-      <div className="flex-1 overflow-y-auto px-5">
-        <div className="mx-auto max-w-lg pt-12 sm:pt-16 text-center">
-          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-brand text-brand-foreground shadow-sm">
-            <Telescope className="size-6" />
+    <div className="relative flex h-[100dvh] flex-col bg-[#050414] font-sans text-white overflow-hidden select-none">
+      {/* Cosmic background neon arcs & glow exactly matching screenshot */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+        {/* Neon electric blue arc along left side */}
+        <svg
+          className="absolute -top-10 -left-12 h-[120%] w-[150%] pointer-events-none opacity-85"
+          viewBox="0 0 500 900"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M -60 20 C 130 160, 40 460, -90 760"
+            stroke="#00d2ff"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            className="filter drop-shadow-[0_0_12px_#00d2ff] drop-shadow-[0_0_28px_rgba(0,210,255,0.6)]"
+          />
+          {/* Neon magenta/fuchsia arc along right & bottom-right */}
+          <path
+            d="M 520 280 C 340 460, 390 780, 20 880"
+            stroke="#ec4899"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            className="filter drop-shadow-[0_0_14px_#ec4899] drop-shadow-[0_0_32px_rgba(236,72,153,0.65)]"
+          />
+        </svg>
+
+        {/* Ambient radial nebular lights */}
+        <div className="absolute -top-24 -left-20 size-80 rounded-full bg-cyan-500/20 blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-10 -right-20 size-96 rounded-full bg-pink-600/25 blur-[130px] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(30,27,75,0.35)_0%,rgba(5,4,20,0.96)_80%)]" />
+      </div>
+
+      {/* Top Mobile Status Bar (4:17 & Network/Battery indicators) */}
+      <div className="relative z-20 flex h-6 shrink-0 items-center justify-between px-6 pt-1 text-[11px] font-semibold text-stone-300/80">
+        <span>4:17</span>
+        <div className="flex items-center gap-1.5 text-[10px]">
+          <span className="rounded-[3px] border border-stone-400/50 px-1 text-[8px] font-bold tracking-tighter">VoLTE</span>
+          <div className="flex items-end gap-0.5 h-2.5">
+            <span className="w-0.5 h-1 bg-stone-300 rounded-[0.5px]" />
+            <span className="w-0.5 h-1.5 bg-stone-300 rounded-[0.5px]" />
+            <span className="w-0.5 h-2 bg-stone-300 rounded-[0.5px]" />
+            <span className="w-0.5 h-2.5 bg-stone-300 rounded-[0.5px]" />
           </div>
-          <h2 className="font-serif text-3xl">Deep research</h2>
-          <p className="mx-auto mt-2 max-w-xs text-sm text-muted-foreground">
-            Enter a topic. I'll ask a few questions, sweep live sources and write a cited report.
-          </p>
+          <div className="size-2.5 rounded-full border border-stone-300 flex items-center justify-center">
+            <div className="size-1 rounded-full bg-stone-300" />
+          </div>
+        </div>
+      </div>
 
-          {/* Quick Demo: Load full sample report with interactive sidebar & moving ball */}
-          <div className="mt-6 flex flex-col items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setTopic(SAMPLE_RESEARCH_TOPIC);
-                setReport(SAMPLE_RESEARCH_REPORT);
-                toast.success("Loaded Deep Research paper with Section Outline and moving ball!");
-              }}
-              className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 active:scale-95 transition cursor-pointer shadow-2xs"
-            >
-              <Sparkles className="size-3.5" />
-              <span>Explore Sample Report (Interactive Moving Ball Demo)</span>
-            </button>
+      {/* Top Header: Radiant Star + My AI Pro + User Profile + Menu */}
+      <header className="relative z-20 flex h-14 shrink-0 items-center justify-between px-6 bg-transparent">
+        <div className="flex items-center gap-2.5">
+          <RadiantStarIcon className="size-8 drop-shadow-[0_0_15px_rgba(236,72,153,0.8)] animate-pulse" />
+          <h1 className="text-xl font-sans font-bold tracking-tight text-white flex items-center">
+            <span>My AI&nbsp;</span>
+            <span className="bg-gradient-to-r from-fuchsia-400 to-pink-500 bg-clip-text text-transparent">Pro</span>
+          </h1>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/auth" })}
+            className="flex size-9 items-center justify-center rounded-full bg-white/10 border border-white/10 text-stone-200 hover:text-white hover:bg-white/20 transition cursor-pointer"
+            title="User Profile & Settings"
+          >
+            <User className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => toast.info("My AI Pro Research v2.4 Active")}
+            className="flex size-9 items-center justify-center rounded-full text-stone-300 hover:text-white transition cursor-pointer"
+            title="More Options"
+          >
+            <MoreVertical className="size-5" />
+          </button>
+        </div>
+      </header>
 
-            {/* Topic Suggestions */}
-            <div className="mt-4 flex flex-wrap justify-center gap-1.5">
+      {/* Top Navigation Tabs Pill Bar: Co-code, Research (Active Glowing), Slides, Co-worker */}
+      <div className="relative z-20 px-4 sm:px-6 py-1.5">
+        <div className="mx-auto flex max-w-sm sm:max-w-md items-center justify-between rounded-full bg-[#0a0d26]/80 border border-blue-500/25 p-1 backdrop-blur-xl shadow-[0_0_20px_rgba(37,99,235,0.2)]">
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/build" })}
+            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-stone-300 hover:text-white transition cursor-pointer"
+          >
+            <Code2 className="size-3.5 text-stone-400" />
+            <span>Co-code</span>
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-600 via-indigo-600 to-pink-500 px-4 py-1.5 text-xs font-bold text-white shadow-[0_0_22px_rgba(236,72,153,0.7)] ring-1 ring-pink-400/80 transition cursor-pointer"
+          >
+            <Telescope className="size-3.5 text-white" />
+            <span>Research</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/presentations" })}
+            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-stone-300 hover:text-white transition cursor-pointer"
+          >
+            <Monitor className="size-3.5 text-stone-400" />
+            <span>Slides</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/cowork" })}
+            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-stone-300 hover:text-white transition cursor-pointer"
+          >
+            <Bot className="size-3.5 text-stone-400" />
+            <span>Co-worker</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Center Hero Content matching exact screenshot */}
+      <div className="relative z-10 flex-1 overflow-y-auto px-6 py-4 flex flex-col items-center justify-center text-center">
+        <div className="mx-auto w-full max-w-sm space-y-5">
+          {/* Glowing Planetary Emblem with Tilted Orbital Ellipse Ring */}
+          <div className="relative mx-auto flex items-center justify-center size-28 my-1">
+            {/* Tilted neon cyan & pink orbital ring */}
+            <div
+              className="absolute -inset-4 rounded-full border-[1.5px] border-cyan-400/80 -rotate-12 pointer-events-none shadow-[0_0_20px_rgba(0,210,255,0.7),inset_0_0_15px_rgba(236,72,153,0.4)] animate-pulse"
+              style={{ borderRadius: "50% / 36%" }}
+            />
+            {/* Center Squircle Badge */}
+            <div className="relative z-10 flex size-24 items-center justify-center rounded-[28px] bg-gradient-to-b from-[#111742] to-[#070922] border-[1.5px] border-pink-500 shadow-[0_0_40px_rgba(236,72,153,0.7),inset_0_0_20px_rgba(0,210,255,0.3)]">
+              <Telescope className="size-11 text-white stroke-[1.8] drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]" />
+            </div>
+          </div>
+
+          {/* Heading: Deep research */}
+          <div className="space-y-1.5">
+            <h2 className="text-3xl sm:text-4xl font-sans tracking-tight font-extrabold text-white">
+              Deep <span className="bg-gradient-to-r from-pink-500 via-fuchsia-500 to-rose-400 bg-clip-text text-transparent">research</span>
+            </h2>
+            <p className="text-xs sm:text-sm text-stone-200/90 max-w-[280px] mx-auto leading-snug">
+              Ask a few questions, sweep live sources and get a detailed report.
+            </p>
+          </div>
+
+          {/* "Explore Sample Report" Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setTopic(SAMPLE_RESEARCH_TOPIC);
+              setReport(SAMPLE_RESEARCH_REPORT);
+              toast.success("Loaded Deep Research sample report!");
+            }}
+            className="mx-auto flex items-center justify-center gap-3 rounded-full border border-pink-500/70 bg-[#0c0e2a]/90 px-6 py-2.5 text-xs font-semibold text-white shadow-[0_0_28px_rgba(236,72,153,0.4)] hover:border-pink-400 hover:shadow-[0_0_36px_rgba(236,72,153,0.65)] active:scale-95 transition cursor-pointer"
+          >
+            <RadiantStarIcon className="size-4 shrink-0 drop-shadow-[0_0_8px_rgba(236,72,153,0.8)]" />
+            <span>Explore Sample Report</span>
+            <ArrowRight className="size-3.5 text-pink-400 shrink-0" />
+          </button>
+
+          {/* Popular Research Topics Pills */}
+          <div className="space-y-2 pt-1 w-full max-w-sm mx-auto">
+            <p className="text-left text-[11px] font-medium text-stone-300 px-1">
+              Popular research topics
+            </p>
+            <div className="flex flex-col gap-2 w-full">
               {[
                 "Autonomous AI Agents 2026",
                 "Solid-State Batteries",
                 "Post-Quantum Cryptography",
-                "Brain-Computer Interfaces",
               ].map((s) => (
                 <button
                   key={s}
                   type="button"
-                  onClick={() => setTopic(s)}
-                  className="rounded-full border border-border/70 bg-surface/70 px-3 py-1 text-xs text-muted-foreground hover:text-ink hover:bg-surface transition cursor-pointer"
+                  onClick={() => {
+                    setTopic(s);
+                    toast.info(`Selected: ${s}`);
+                  }}
+                  className="flex items-center gap-3 rounded-full border border-blue-500/35 bg-[#090b24]/90 hover:bg-[#10143d] hover:border-blue-400 px-4 py-2.5 text-xs font-medium text-white transition active:scale-[0.98] cursor-pointer shadow-[0_0_15px_rgba(37,99,235,0.2)] text-left"
                 >
-                  {s}
+                  <RadiantStarIcon className="size-4 shrink-0 drop-shadow-[0_0_6px_rgba(56,189,248,0.8)]" />
+                  <span className="truncate">{s}</span>
                 </button>
               ))}
             </div>
           </div>
         </div>
       </div>
-      <footer className="border-t border-black/5 px-4 pb-6 pt-3">
-        <div className="mx-auto max-w-lg space-y-2">
+
+      {/* Bottom Topic Input Bar with glowing neon pill border */}
+      <footer className="relative z-20 px-4 sm:px-6 pb-6 pt-1 bg-transparent">
+        <div className="mx-auto max-w-sm sm:max-w-md">
           {/* Active Context Badges */}
           {(screenCaptured || folderName || attachments.length > 0) && (
-            <div className="flex flex-wrap items-center gap-1.5 px-1">
+            <div className="mb-2 flex flex-wrap items-center gap-1.5">
               {screenCaptured && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-brand/15 px-2.5 py-0.5 text-[11px] font-medium text-brand border border-brand/30">
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/20 px-2.5 py-0.5 text-[10px] font-semibold text-blue-300 border border-blue-500/40">
                   <Monitor className="size-3" /> Screen Captured
-                  <button onClick={() => setScreenCaptured(false)} className="ml-1 hover:text-red-500">
-                    <X className="size-3" />
+                  <button onClick={() => setScreenCaptured(false)} className="ml-1 hover:text-red-400">
+                    <X className="size-2.5" />
                   </button>
                 </span>
               )}
-
               {folderName && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-semibold text-amber-300 border border-amber-500/40">
                   <FolderUp className="size-3" /> {folderName}
-                  <button onClick={() => setFolderName(null)} className="ml-1 hover:text-red-500">
-                    <X className="size-3" />
+                  <button onClick={() => setFolderName(null)} className="ml-1 hover:text-red-400">
+                    <X className="size-2.5" />
                   </button>
                 </span>
               )}
-
               {attachments.map((file, i) => (
                 <span
                   key={i}
-                  className="inline-flex items-center gap-1 rounded-full bg-surface px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground border border-border/60"
+                  className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold text-stone-200 border border-white/20"
                 >
                   <Paperclip className="size-3" /> {file.name}
-                  <button onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))} className="ml-1 hover:text-red-500">
-                    <X className="size-3" />
+                  <button onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))} className="ml-1 hover:text-red-400">
+                    <X className="size-2.5" />
                   </button>
                 </span>
               ))}
             </div>
           )}
 
-          <div className="relative flex items-center gap-2 rounded-[24px] bg-surface p-2 ring-1 ring-black/5">
-            {/* Plus Button */}
+          <div className="relative flex items-center gap-2 rounded-full border border-blue-500/50 bg-[#080a22]/95 px-2.5 py-1.5 shadow-[0_0_30px_rgba(37,99,235,0.35),0_0_15px_rgba(236,72,153,0.2)] backdrop-blur-2xl">
+            {/* Circular Plus Button */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setShowPlusMenu((v) => !v)}
-                className="flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-canvas hover:text-ink transition"
+                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-blue-400/40 bg-blue-500/10 text-blue-200 hover:text-white hover:bg-blue-500/20 transition cursor-pointer"
                 title="Attach Screen, Folders, Images for Deep Research"
               >
-                <Plus className={cn("size-4 transition", showPlusMenu ? "rotate-45 text-brand" : "")} />
+                <Plus className={cn("size-4 transition", showPlusMenu ? "rotate-45 text-pink-400" : "")} />
               </button>
 
               {/* Plus Popup Menu */}
               {showPlusMenu && (
-                <div className="absolute bottom-11 left-0 z-50 w-60 rounded-2xl border border-border/80 bg-canvas p-2 shadow-xl animate-in fade-in-0 zoom-in-95">
+                <div className="absolute bottom-12 left-0 z-50 w-60 rounded-2xl border border-blue-500/30 bg-[#070920]/95 p-2 shadow-2xl backdrop-blur-2xl text-white animate-in fade-in-0 zoom-in-95">
                   <div className="space-y-1">
                     <button
                       type="button"
-                      onClick={handleShareScreen}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-ink hover:bg-surface transition text-left"
+                      onClick={() => {
+                        setShowPlusMenu(false);
+                        handleShareScreen();
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-200 hover:bg-blue-500/20 transition text-left cursor-pointer"
                     >
-                      <Monitor className="size-4 text-brand" />
+                      <Monitor className="size-4 text-pink-400" />
                       <div>
                         <div>Share Screen</div>
-                        <div className="text-[10px] text-muted-foreground">Capture live screen context</div>
+                        <div className="text-[10px] text-stone-400">Capture live screen context</div>
                       </div>
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => folderInputRef.current?.click()}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-ink hover:bg-surface transition text-left"
+                      onClick={() => {
+                        setShowPlusMenu(false);
+                        folderInputRef.current?.click();
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-200 hover:bg-blue-500/20 transition text-left cursor-pointer"
                     >
-                      <FolderUp className="size-4 text-amber-500" />
+                      <FolderUp className="size-4 text-amber-400" />
                       <div>
                         <div>Upload Folder</div>
-                        <div className="text-[10px] text-muted-foreground">Research whole code directory</div>
+                        <div className="text-[10px] text-stone-400">Research whole code directory</div>
                       </div>
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-ink hover:bg-surface transition text-left"
+                      onClick={() => {
+                        setShowPlusMenu(false);
+                        fileInputRef.current?.click();
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-200 hover:bg-blue-500/20 transition text-left cursor-pointer"
                     >
-                      <ImageIcon className="size-4 text-emerald-500" />
+                      <ImageIcon className="size-4 text-emerald-400" />
                       <div>
                         <div>Upload Images & Files</div>
-                        <div className="text-[10px] text-muted-foreground">Attach charts, PDFs, documents</div>
+                        <div className="text-[10px] text-stone-400">Attach charts, PDFs, documents</div>
                       </div>
                     </button>
                   </div>
@@ -907,15 +1074,29 @@ The findings indicate that **${topic}** has transitioned from an exploratory par
             <input
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              placeholder="Topic to research…"
-              className="flex-1 bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && topic.trim() && !plan.isPending) {
+                  plan.mutate(topic.trim());
+                }
+              }}
+              placeholder="Topic to research..."
+              className="flex-1 bg-transparent px-2 text-xs sm:text-sm text-white placeholder:text-blue-300/40 outline-none"
             />
+
             <button
+              type="button"
               onClick={() => topic.trim() && plan.mutate(topic.trim())}
               disabled={!topic.trim() || plan.isPending}
-              className="rounded-full bg-ink px-4 py-2 text-xs font-medium text-white disabled:opacity-40"
+              className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#00d2ff] via-[#3b82f6] to-[#ec4899] hover:brightness-110 px-5 py-2 text-xs font-bold text-white shadow-[0_0_22px_rgba(236,72,153,0.6)] disabled:opacity-40 transition active:scale-95 cursor-pointer shrink-0"
             >
-              {plan.isPending ? <Loader2 className="size-4 animate-spin" /> : "Start"}
+              {plan.isPending ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <>
+                  <RadiantStarIcon className="size-3.5 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                  <span>Start</span>
+                </>
+              )}
             </button>
           </div>
         </div>

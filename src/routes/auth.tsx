@@ -256,8 +256,8 @@ function AuthPage() {
         {/* Cancel / Close Logo returning to no-code platform */}
         <button
           type="button"
-          onClick={() => navigate({ to: "/chat/$threadId", params: { threadId: "default" } })}
-          className="absolute top-4 right-4 flex size-8 items-center justify-center rounded-full bg-white/5 border border-white/10 text-stone-400 hover:text-white hover:bg-white/10 transition"
+          onClick={() => navigate({ to: "/build" })}
+          className="absolute top-4 right-4 flex size-8 items-center justify-center rounded-full bg-white/5 border border-white/10 text-stone-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
           title="Cancel and return to no-code platform"
         >
           <X className="size-4" />

@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   Sparkles, Mic, MicOff, Plus, Send, Loader2, FolderOpen, Palette, Database,
@@ -10,7 +10,7 @@ import {
   Github, GitBranch, ThumbsUp, ThumbsDown, Link2, Pencil, MoreHorizontal, Square,
   Code2, MonitorPlay, Lock, Search, RefreshCw, Trash2, Settings, LayoutGrid, Telescope,
   Presentation, Bot, MessageSquare, Blocks, CreditCard, BookOpen, Bell, Maximize2,
-  Mail, ShoppingBag, HardDrive, FileText, Flame, PhoneCall,
+  Mail, ShoppingBag, HardDrive, FileText, Flame, PhoneCall, FileCode2,
 } from "lucide-react";
 import amberWavesBg from "@/assets/images/amber_waves_bg_1791883311977.jpg";
 import amberGlassOrb from "@/assets/images/amber_glass_orb_1791883331076.jpg";
@@ -37,8 +37,22 @@ import { ProjectControlCenter } from "@/components/project-control-center";
 import { UpgradeModal } from "@/components/upgrade-modal";
 import { Preview } from "@/components/preview-view";
 import { getActiveUserSession, getActiveUserStorageKey } from "@/lib/user-session";
-import { db, signInWithGithubFirebase } from "@/lib/firebase";
-import { doc, setDoc } from "firebase/firestore";
+import {
+  GmailLogo,
+  GoogleMapsLogo,
+  StripeLogo,
+  GitHubLogo,
+  SupabaseLogo,
+  FirebaseLogo,
+  OpenAILogo,
+  ShopifyLogo,
+  SlackLogo,
+  NotionLogo,
+  TwilioLogo,
+  GoogleDriveLogo,
+  GoogleSheetsLogo,
+} from "@/components/icons/app-logos";
+import { ToolConnectionModal } from "@/components/tool-connection-modal";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/build")({
@@ -392,6 +406,8 @@ function BuildPage() {
   const [expandedPrompts, setExpandedPrompts] = useState<Record<string, boolean>>({});
   const [expandedThoughts, setExpandedThoughts] = useState<Record<string, boolean>>({});
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const [showCodeExplorerModal, setShowCodeExplorerModal] = useState(false);
+  const [previewMenuOpen, setPreviewMenuOpen] = useState(false);
   const [buildMode, setBuildMode] = useState<"build" | "chat">("build");
   const [buildModeMenuOpen, setBuildModeMenuOpen] = useState(false);
 
@@ -533,87 +549,10 @@ function BuildPage() {
       setHistory([]);
     }
 
-    // Mobile continuity check: if user closed mobile, app continues building on server
-    const savedActiveId = localStorage.getItem(getActiveBuildStorageKey());
-    if (savedActiveId) {
-      getBuildStatusFn({ data: { buildId: savedActiveId } })
-        .then((res) => {
-          const job = res?.job;
-          if (!job) {
-            localStorage.removeItem(getActiveBuildStorageKey());
-            return;
-          }
-          const targetProjectId = job.existingProjectId || savedActiveId;
-          setCurrentProjectId(targetProjectId);
-          if (job.status === "completed") {
-            const completedBuilt: Built = {
-              name: job.name,
-              description: job.description,
-              preview_html: job.preview_html,
-              files: job.files,
-            };
-            setBuilt(completedBuilt);
-            setTurns([
-              {
-                id: job.id,
-                prompt: job.idea,
-                at: job.at || Date.now(),
-                thoughtSeconds: 6,
-                aiSummary:
-                  job.description ||
-                  `I've built ${job.name} on the preview, with interactive components, state management, and error handling.`,
-                activityLabel: `Exploring ${job.name} flow`,
-                status: "completed",
-              },
-            ]);
-            setTab("preview");
-            localStorage.removeItem(getActiveBuildStorageKey());
-            toast.success("Your app finished building while you were away! Loaded from background.");
-            setHistory((prev) => {
-              const updated = prev.map((h) =>
-                h.id === targetProjectId || h.id === savedActiveId
-                  ? { ...h, ...job, id: targetProjectId, status: "completed" as const }
-                  : h,
-              );
-              saveUserBuilds(updated);
-              return updated;
-            });
-          } else if (job.status === "planning" || job.status === "writing") {
-            setActiveJobId(savedActiveId);
-            setIsBuilding(true);
-            setBuilt({
-              name: job.name || "Building App…",
-              description: job.description || `Building ${job.idea}`,
-              preview_html: job.preview_html || "",
-              files: job.files || [],
-            });
-            setTurns([
-              {
-                id: job.id,
-                prompt: job.idea,
-                at: job.at || Date.now(),
-                thoughtSeconds: 6,
-                aiSummary:
-                  job.description ||
-                  `I'll build a complete application on the preview, with interactive views, clean layout, and responsive controls.`,
-                activityLabel: job.progress?.[0] || "Exploring application flow",
-                status: "building",
-              },
-            ]);
-            setProgress(job.progress || ["Resuming background build…"]);
-            toast.info("Resuming active build in progress…");
-            startPollingJob(savedActiveId, job.id, targetProjectId);
-          }
-        })
-        .catch(() => {
-          localStorage.removeItem(getActiveBuildStorageKey());
-        });
-    }
-
+    // No-code platform always starts fresh on open; users open past projects from History
     return () => {
       stopPolling();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function stopPolling() {
@@ -722,6 +661,7 @@ function BuildPage() {
             files: job.files,
           };
           setBuilt(completedBuilt);
+          goToSlide("preview");
           // Automatically sync to published registry so /p/$appId always shows this app
           persistPublishedApp(completedBuilt);
           toast.success(
@@ -1673,20 +1613,19 @@ function BuildPage() {
         {/* Connector Cards List matching Screenshots */}
         <div className="space-y-2 pt-1">
           {[
-            { name: "Gmail", desc: "Read, send, and manage your emails", category: "Communication", icon: Mail, color: "bg-red-500 text-white" },
-            { name: "Google Maps Platform", desc: "Maps, geocoding, directions, and places APIs", category: "Maps & Location", icon: Globe, color: "bg-emerald-600 text-white" },
-            { name: "Stripe", desc: "Set up payments and subscriptions", category: "Ecommerce", icon: CreditCard, color: "bg-indigo-600 text-white" },
-            { name: "Shopify", desc: "Build an eCommerce store and catalog", category: "Ecommerce", icon: ShoppingBag, color: "bg-green-600 text-white" },
-            { name: "Google Drive", desc: "Upload and download files and folders", category: "Storage", icon: HardDrive, color: "bg-blue-600 text-white" },
-            { name: "Google Sheets", desc: "Read and update spreadsheet data", category: "Database", icon: FileText, color: "bg-emerald-700 text-white" },
-            { name: "Slack", desc: "Send messages and interact with Slack workspace", category: "Communication", icon: MessageSquare, color: "bg-purple-600 text-white" },
-            { name: "Notion", desc: "Add Notion pages and databases to your app", category: "Productivity", icon: FileCode2, color: "bg-zinc-900 text-white" },
-            { name: "GitHub", desc: "Access repos, commits, and webhook events", category: "Development", icon: Github, color: "bg-zinc-800 text-white" },
-            { name: "Supabase", desc: "Postgres database, Auth & realtime storage", category: "Database", icon: Database, color: "bg-emerald-500 text-white" },
-            { name: "Firebase", desc: "Firestore NoSQL database & Google Auth", category: "Database", icon: Flame, color: "bg-amber-500 text-white" },
-            { name: "OpenAI", desc: "Use GPT-4o, embeddings, and generative AI", category: "AI", icon: Sparkles, color: "bg-emerald-400 text-zinc-900" },
-            { name: "Resend", desc: "Developer email API for transactional mail", category: "Communication", icon: Send, color: "bg-zinc-900 text-white" },
-            { name: "Twilio", desc: "Cloud communications for SMS and voice", category: "Communication", icon: PhoneCall, color: "bg-red-600 text-white" },
+            { name: "Gmail", desc: "Read, send, and manage your emails via Google Workspace", category: "Communication", logo: GmailLogo },
+            { name: "Google Maps Platform", desc: "Maps, geocoding, directions, and places APIs", category: "Maps & Location", logo: GoogleMapsLogo },
+            { name: "Stripe", desc: "Set up payments, cards, Apple Pay & subscriptions", category: "Ecommerce", logo: StripeLogo },
+            { name: "Shopify", desc: "Build an eCommerce store and catalog", category: "Ecommerce", logo: ShopifyLogo },
+            { name: "Google Drive", desc: "Upload and download files and folders", category: "Storage", logo: GoogleDriveLogo },
+            { name: "Google Sheets", desc: "Read and update spreadsheet data", category: "Database", logo: GoogleSheetsLogo },
+            { name: "Slack", desc: "Send messages and interact with Slack workspace", category: "Communication", logo: SlackLogo },
+            { name: "Notion", desc: "Add Notion pages and databases to your app", category: "Productivity", logo: NotionLogo },
+            { name: "GitHub", desc: "Access repos, commits, and webhook events", category: "Development", logo: GitHubLogo },
+            { name: "Supabase", desc: "Postgres database, Auth & realtime storage", category: "Database", logo: SupabaseLogo },
+            { name: "Firebase", desc: "Firestore NoSQL database & Google Auth", category: "Database", logo: FirebaseLogo },
+            { name: "OpenAI", desc: "Use GPT-4o, embeddings, and generative AI", category: "AI", logo: OpenAILogo },
+            { name: "Twilio", desc: "Cloud communications for SMS and voice", category: "Communication", logo: TwilioLogo },
           ]
             .filter((c) => {
               if (connectorFilterCategory !== "All" && connectorFilterCategory !== "Enabled" && c.category !== connectorFilterCategory) {
@@ -1703,7 +1642,7 @@ function BuildPage() {
             })
             .map((conn) => {
               const hasKey = Boolean(userToolKeys[conn.name]);
-              const IconComp = conn.icon;
+              const LogoComp = conn.logo;
               return (
                 <button
                   key={conn.name}
@@ -1713,7 +1652,7 @@ function BuildPage() {
                     setToolApiKeyValue(userToolKeys[conn.name] || "");
                     setMenuOpen(false);
                   }}
-                  className="relative flex w-full items-center gap-3.5 rounded-2xl border border-zinc-200/80 bg-zinc-50/50 p-3.5 text-left hover:bg-zinc-100 hover:border-zinc-300 transition group cursor-pointer"
+                  className="relative flex w-full items-center gap-3.5 rounded-2xl border border-zinc-200/80 bg-zinc-50/50 p-3 text-left hover:bg-zinc-100 hover:border-zinc-300 transition group cursor-pointer"
                 >
                   {/* Green active status indicator dot matching screenshots */}
                   <span
@@ -1724,9 +1663,9 @@ function BuildPage() {
                     title={hasKey ? "Connected with API key" : "Not connected"}
                   />
 
-                  {/* Brand Icon Box */}
-                  <div className={cn("flex size-11 shrink-0 items-center justify-center rounded-2xl shadow-xs transition group-hover:scale-105", conn.color)}>
-                    <IconComp className="size-5" />
+                  {/* Brand Logo Box with official logo */}
+                  <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white border border-zinc-200 shadow-2xs transition group-hover:scale-105 p-2">
+                    <LogoComp className="size-6 text-zinc-900" />
                   </div>
 
                   {/* Title & Description */}
@@ -2104,81 +2043,88 @@ function BuildPage() {
   );
 
   const toolApiKeyModalOverlay = selectedToolForApiKey && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-black/10 space-y-4 text-zinc-900">
-        <div className="flex items-center justify-between">
+    <ToolConnectionModal
+      toolName={selectedToolForApiKey}
+      onClose={() => setSelectedToolForApiKey(null)}
+      savedKeys={userToolKeys}
+      onSave={(tool, key) => {
+        const nextKeys = { ...userToolKeys, [tool]: key };
+        setUserToolKeys(nextKeys);
+        localStorage.setItem("myai_user_tool_keys", JSON.stringify(nextKeys));
+        setConnected((c) => (c.includes(tool) ? c : [...c, tool]));
+      }}
+      onDisconnect={(tool) => {
+        const nextKeys = { ...userToolKeys };
+        delete nextKeys[tool];
+        setUserToolKeys(nextKeys);
+        localStorage.setItem("myai_user_tool_keys", JSON.stringify(nextKeys));
+        setConnected((c) => c.filter((x) => x !== tool));
+      }}
+    />
+  );
+
+  const userProjectFiles: BuiltFile[] = useMemo(() => {
+    if (built?.files && built.files.length > 0) {
+      return built.files;
+    }
+    const html = built?.preview_html || "<div>Application Preview</div>";
+    return [
+      {
+        path: "src/App.tsx",
+        language: "typescript",
+        content: `// src/App.tsx\n// Production React component for ${built?.name || "Application"}\nimport React, { useState } from 'react';\nimport { Sparkles, Globe, MapPin, Mail, CreditCard } from 'lucide-react';\n\nexport default function App() {\n  const [activeTab, setActiveTab] = useState('overview');\n\n  return (\n    <main className="min-h-screen bg-[#070e1e] text-white p-6 font-sans">\n      <header className="max-w-5xl mx-auto flex items-center justify-between border-b border-blue-500/20 pb-4">\n        <div className="flex items-center gap-2">\n          <div className="size-9 rounded-xl bg-gradient-to-tr from-blue-600 to-pink-500 flex items-center justify-center shadow-lg shadow-blue-500/30">\n            <Sparkles className="size-5 text-white" />\n          </div>\n          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-pink-400 bg-clip-text text-transparent">\n            ${built?.name || "My Project"}\n          </h1>\n        </div>\n        <span className="rounded-full bg-blue-500/20 border border-blue-400/30 px-3 py-1 text-xs text-blue-300 font-semibold">\n          Production Build v1.0\n        </span>\n      </header>\n\n      <div className="max-w-5xl mx-auto mt-6">\n        <p className="text-sm text-blue-200/80 mb-6">\n          ${built?.description || "Engineered autonomously by My AI Pro"}\n        </p>\n      </div>\n    </main>\n  );\n}\n`,
+      },
+      {
+        path: "index.html",
+        language: "html",
+        content: html.includes("<!DOCTYPE") ? html : `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8"/>\n  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>\n  <title>${built?.name || "App Preview"}</title>\n  <script src="https://cdn.tailwindcss.com"></script>\n</head>\n<body class="bg-slate-950 text-white">\n  <div id="root">\n    ${html}\n  </div>\n</body>\n</html>`,
+      },
+      {
+        path: "package.json",
+        language: "json",
+        content: `{\n  "name": "${(built?.name || "my-app").toLowerCase().replace(/[^a-z0-9-]+/g, "-")}",\n  "private": true,\n  "version": "1.0.0",\n  "type": "module",\n  "scripts": {\n    "dev": "vite",\n    "build": "vite build",\n    "preview": "vite preview"\n  },\n  "dependencies": {\n    "react": "^18.3.1",\n    "react-dom": "^18.3.1",\n    "lucide-react": "^0.475.0",\n    "clsx": "^2.1.1",\n    "tailwind-merge": "^2.5.4"\n  }\n}\n`,
+      },
+      {
+        path: "README.md",
+        language: "markdown",
+        content: `# ${built?.name || "My Application"}\n\n${built?.description || "Built with My AI Pro no-coding platform."}\n\n## Getting Started\n\`\`\`bash\nnpm install\nnpm run dev\n\`\`\`\n`,
+      },
+    ];
+  }, [built]);
+
+  const codeExplorerModal = showCodeExplorerModal && built && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in">
+      <div className="relative w-full max-w-5xl h-[85vh] rounded-3xl bg-[#070e1e] border border-blue-500/30 shadow-[0_0_60px_rgba(37,99,235,0.3)] overflow-hidden flex flex-col text-white">
+        <div className="flex items-center justify-between px-6 py-3.5 border-b border-blue-500/20 bg-[#09142b]/90">
           <div className="flex items-center gap-2.5">
-            <div className="flex size-10 items-center justify-center rounded-2xl bg-zinc-900 text-white shadow-xs">
-              <Key className="size-5 text-amber-400" />
+            <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-pink-500 text-white shadow-md">
+              <FileCode2 className="size-4.5" />
             </div>
             <div>
-              <h3 className="font-bold text-zinc-900 text-sm">Connect {selectedToolForApiKey}</h3>
-              <p className="text-xs text-zinc-500">
-                Provide API key or credentials. It will be automatically injected into your app builds.
+              <h3 className="text-sm font-bold bg-gradient-to-r from-blue-300 via-white to-pink-300 bg-clip-text text-transparent">
+                {built.name} — Source Code Explorer
+              </h3>
+              <p className="text-[11px] text-blue-300/60">
+                {userProjectFiles.length} production module(s) written
               </p>
             </div>
           </div>
           <button
             type="button"
-            onClick={() => setSelectedToolForApiKey(null)}
-            className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900"
+            onClick={() => setShowCodeExplorerModal(false)}
+            className="flex size-8 items-center justify-center rounded-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-200 hover:text-white transition cursor-pointer"
           >
             <X className="size-4" />
           </button>
         </div>
-
-        <div className="space-y-3 pt-2">
-          <div>
-            <label className="text-xs font-semibold text-zinc-800 block mb-1">
-              {selectedToolForApiKey} API Key / Secret Token
-            </label>
-            <input
-              type="password"
-              value={toolApiKeyValue}
-              onChange={(e) => setToolApiKeyValue(e.target.value)}
-              placeholder={`Enter your ${selectedToolForApiKey} API key (e.g. AIza..., sk-...)`}
-              className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-3 text-xs text-zinc-900 outline-none focus:border-zinc-900 focus:bg-white font-mono transition"
-            />
-            <p className="text-[11px] text-zinc-500 mt-1">
-              Saved securely in local session. The AI builder will automatically include this key when generating components for {selectedToolForApiKey}.
-            </p>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-100">
-            <button
-              type="button"
-              onClick={() => {
-                const nextKeys = { ...userToolKeys };
-                delete nextKeys[selectedToolForApiKey];
-                setUserToolKeys(nextKeys);
-                localStorage.setItem("myai_user_tool_keys", JSON.stringify(nextKeys));
-                setConnected((c) => c.filter((x) => x !== selectedToolForApiKey));
-                setSelectedToolForApiKey(null);
-                toast.success(`Disconnected ${selectedToolForApiKey}`);
-              }}
-              className="rounded-2xl px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
-            >
-              Disconnect
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (!toolApiKeyValue.trim()) {
-                  toast.error("Please enter a valid API key or token.");
-                  return;
-                }
-                const nextKeys = { ...userToolKeys, [selectedToolForApiKey]: toolApiKeyValue.trim() };
-                setUserToolKeys(nextKeys);
-                localStorage.setItem("myai_user_tool_keys", JSON.stringify(nextKeys));
-                setConnected((c) => (c.includes(selectedToolForApiKey) ? c : [...c, selectedToolForApiKey]));
-                setSelectedToolForApiKey(null);
-                toast.success(`Successfully connected ${selectedToolForApiKey} with automatic API key injection!`);
-              }}
-              className="rounded-2xl bg-zinc-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-zinc-800 transition shadow-xs"
-            >
-              Save & Connect Tool
-            </button>
-          </div>
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <CodeExplorer
+            files={userProjectFiles}
+            appName={built.name}
+            onUpdateFiles={(newFiles) => {
+              setBuilt((prev) => (prev ? { ...prev, files: newFiles } : prev));
+            }}
+          />
         </div>
       </div>
     </div>
@@ -2245,18 +2191,20 @@ function BuildPage() {
 
   if (built) {
     return (
-      <div className="flex h-[100dvh] flex-col bg-white font-sans text-zinc-900 select-none sm:select-auto">
+      <div className="flex h-[100dvh] flex-col bg-[#060b19] font-sans text-white select-none sm:select-auto">
         {sharedFileInputs}
         {projectControlCenterModal}
 
-        {/* Top Bar: [ X ]   [ Project Name v ]   [ > ] with white background and clean pills */}
-        <header className="flex h-14 shrink-0 items-center justify-between px-4 sm:px-6 bg-white z-30 border-b border-zinc-200">
-          {/* Left: Close / Back button */}
+        {/* Top Bar: [ X ]   [ Project Name v ]   [ > ] with classic blue UI and luminous pills */}
+        <header className="flex h-14 shrink-0 items-center justify-between px-4 sm:px-6 bg-[#081226]/90 z-30 border-b border-blue-500/20 backdrop-blur-md">
+          {/* Left: Close / Back button returning to no-code platform */}
           <button
             type="button"
-            onClick={() => navigate({ to: "/" })}
-            className="flex size-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-700 hover:bg-zinc-200 transition cursor-pointer"
-            title="Back to home"
+            onClick={() => {
+              setBuilt(null);
+            }}
+            className="flex size-8 items-center justify-center rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-200 hover:text-white hover:bg-blue-500/20 transition cursor-pointer"
+            title="Cancel and return to no-code platform"
           >
             <X className="size-4" />
           </button>
@@ -2265,17 +2213,17 @@ function BuildPage() {
           <button
             type="button"
             onClick={() => setProjectMenuOpen(true)}
-            className="flex items-center gap-1.5 rounded-full bg-zinc-100 px-4 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-zinc-200 transition cursor-pointer"
+            className="flex items-center gap-1.5 rounded-full bg-[#0b1836] border border-blue-500/30 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-900/40 transition cursor-pointer shadow-xs"
           >
             <span className="truncate max-w-[200px]">{built.name}</span>
-            <ChevronDown className="size-3.5 text-zinc-500" />
+            <ChevronDown className="size-3.5 text-blue-400" />
           </button>
 
           {/* Right: Next / Forward button */}
           <button
             type="button"
             onClick={() => goToSlide(slideIndex === 0 ? "preview" : "chat")}
-            className="flex size-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-700 hover:bg-zinc-200 transition cursor-pointer"
+            className="flex size-8 items-center justify-center rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-200 hover:text-white hover:bg-blue-500/20 transition cursor-pointer"
             title="Next slide"
           >
             <ChevronRight className="size-4" />
@@ -2372,16 +2320,22 @@ function BuildPage() {
           className="flex flex-1 min-h-0 w-full overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar"
         >
           {/* ==================== SLIDE 1: BUILDER CHAT ==================== */}
-          <div className="flex h-full w-full shrink-0 snap-center flex-col justify-between overflow-hidden">
+          <div className="relative flex h-full w-full shrink-0 snap-center flex-col justify-between overflow-hidden bg-[#070e20] text-blue-100">
+            {/* Ambient Lighting Glow */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+              <div className="absolute top-0 left-1/4 size-[400px] rounded-full bg-blue-600/10 blur-[130px]" />
+              <div className="absolute bottom-10 right-10 size-[350px] rounded-full bg-pink-600/10 blur-[140px]" />
+            </div>
+
             {/* Messages Stream */}
-            <div className="flex-1 overflow-y-auto px-4 pt-2 pb-4">
+            <div className="relative z-10 flex-1 overflow-y-auto px-4 pt-2 pb-4">
               <div className="mx-auto max-w-xl space-y-6">
                 {/* Subtle top feedback row matching screenshot */}
-                <div className="flex items-center gap-4 px-1 text-zinc-500">
+                <div className="flex items-center gap-4 px-1 text-blue-300/50">
                   <button
                     type="button"
                     onClick={() => toast.success("Feedback recorded")}
-                    className="hover:text-zinc-900 transition"
+                    className="hover:text-white transition"
                     aria-label="Helpful"
                   >
                     <ThumbsUp className="size-4" />
@@ -2389,7 +2343,7 @@ function BuildPage() {
                   <button
                     type="button"
                     onClick={() => toast.info("Feedback recorded")}
-                    className="hover:text-zinc-900 transition"
+                    className="hover:text-white transition"
                     aria-label="Not helpful"
                   >
                     <ThumbsDown className="size-4" />
@@ -2400,7 +2354,7 @@ function BuildPage() {
                       navigator.clipboard.writeText(built.description || built.name);
                       toast.success("Copied");
                     }}
-                    className="hover:text-zinc-900 transition"
+                    className="hover:text-white transition"
                     aria-label="Copy"
                   >
                     <Copy className="size-4" />
@@ -2408,7 +2362,7 @@ function BuildPage() {
                   <button
                     type="button"
                     onClick={() => goToSlide("preview")}
-                    className="hover:text-zinc-900 transition"
+                    className="hover:text-white transition"
                     aria-label="More options"
                   >
                     <MoreHorizontal className="size-4" />
@@ -2743,8 +2697,8 @@ function BuildPage() {
                   </div>
                 )}
 
-                {/* Compact Shorter Composer Box matching screenshot ("Queue follow-up...") */}
-                <div className="rounded-[24px] bg-white border border-zinc-200 p-2 shadow-sm">
+                {/* Compact Shorter Composer Box matching classic blue UI ("Queue follow-up...") */}
+                <div className="rounded-[24px] bg-[#081226]/95 border border-blue-500/30 p-2 shadow-[0_0_30px_rgba(37,99,235,0.25)] backdrop-blur-xl">
                   <textarea
                     value={upgrade}
                     onChange={(e) => setUpgrade(e.target.value)}
@@ -2758,7 +2712,7 @@ function BuildPage() {
                     }}
                     rows={1}
                     placeholder="Queue follow-up..."
-                    className="w-full resize-none bg-transparent px-1.5 py-0.5 text-[14px] text-zinc-900 placeholder:text-zinc-400 outline-none"
+                    className="w-full resize-none bg-transparent px-2 py-0.5 text-[14px] text-white placeholder:text-blue-300/40 outline-none"
                   />
 
                   <div className="mt-1 flex items-center justify-between">
@@ -2768,73 +2722,13 @@ function BuildPage() {
                       onClick={() => setMenuOpen((v) => !v)}
                       aria-label="Upload images or folder"
                       title="Upload images, folder, or connect tools"
-                      className="flex size-8 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 active:scale-95 transition"
+                      className="flex size-8 items-center justify-center rounded-full border border-blue-400/30 bg-blue-500/15 text-blue-200 hover:text-white hover:bg-blue-500/25 active:scale-95 transition cursor-pointer"
                     >
                       <Plus className="size-4 stroke-[1.75]" />
                     </button>
 
-                    {/* Right: [ Build v ]  [ Mic ]  [ Stop / Send ] */}
+                    {/* Right: [ Stop / Send ] */}
                     <div className="flex items-center gap-1.5">
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setBuildModeMenuOpen((v) => !v)}
-                          className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-medium text-zinc-900 hover:bg-zinc-100 transition"
-                        >
-                          <span>{buildMode === "build" ? "Build" : "Chat"}</span>
-                          <ChevronDown className="size-3.5 text-zinc-500" />
-                        </button>
-                        {buildModeMenuOpen && (
-                          <>
-                            <div className="fixed inset-0 z-40" onClick={() => setBuildModeMenuOpen(false)} />
-                            <div className="absolute right-0 bottom-10 z-50 w-36 rounded-2xl bg-white p-1.5 shadow-xl border border-zinc-200 text-xs space-y-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setBuildMode("build");
-                                  setBuildModeMenuOpen(false);
-                                }}
-                                className={cn(
-                                  "flex w-full items-center justify-between rounded-xl px-3 py-1.5 font-medium",
-                                  buildMode === "build" ? "bg-zinc-100 text-zinc-900" : "text-zinc-600 hover:bg-zinc-50",
-                                )}
-                              >
-                                <span>Build</span>
-                                {buildMode === "build" && <Check className="size-3.5 text-zinc-900" />}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setBuildMode("chat");
-                                  setBuildModeMenuOpen(false);
-                                }}
-                                className={cn(
-                                  "flex w-full items-center justify-between rounded-xl px-3 py-1.5 font-medium",
-                                  buildMode === "chat" ? "bg-zinc-100 text-zinc-900" : "text-zinc-600 hover:bg-zinc-50",
-                                )}
-                              >
-                                <span>Chat</span>
-                                {buildMode === "chat" && <Check className="size-3.5 text-zinc-900" />}
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={toggle}
-                        aria-label="Voice input"
-                        className={cn(
-                          "flex size-8 items-center justify-center rounded-full border transition",
-                          listening
-                            ? "bg-red-500 text-white border-red-500 animate-pulse"
-                            : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100",
-                        )}
-                      >
-                        {listening ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
-                      </button>
-
                       {isBuilding ? (
                         <button
                           type="button"
@@ -2845,9 +2739,9 @@ function BuildPage() {
                           }}
                           aria-label="Stop build"
                           title="Stop active build"
-                          className="flex size-8 items-center justify-center rounded-full border border-zinc-200 bg-zinc-100 text-zinc-900 hover:bg-zinc-200 active:scale-95 transition"
+                          className="flex size-8 items-center justify-center rounded-full border border-blue-400/30 bg-blue-500/20 text-white hover:bg-blue-500/30 active:scale-95 transition cursor-pointer"
                         >
-                          <Square className="size-3.5 fill-zinc-900 text-zinc-900 rounded-[2px]" />
+                          <Square className="size-3.5 fill-white text-white rounded-[2px]" />
                         </button>
                       ) : (
                         <button
@@ -2855,7 +2749,7 @@ function BuildPage() {
                           onClick={() => upgrade.trim() && triggerUpgrade(upgrade)}
                           disabled={!upgrade.trim()}
                           aria-label="Send follow-up"
-                          className="flex size-8 items-center justify-center rounded-full border border-zinc-200 bg-zinc-900 text-white disabled:bg-zinc-100 disabled:text-zinc-400 active:scale-95 transition"
+                          className="flex size-8 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-pink-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] disabled:opacity-40 active:scale-95 transition cursor-pointer"
                         >
                           <Send className="size-3.5" />
                         </button>
@@ -2895,20 +2789,42 @@ function BuildPage() {
               )}
             </div>
 
-            {/* FLOATING BOTTOM CONTROL BAR (Chat, Open in Live Web, Menu) */}
-            <div className="fixed bottom-6 inset-x-0 z-40 mx-auto flex w-fit max-w-[92vw] items-center gap-2.5 rounded-full bg-zinc-950/90 border border-white/20 px-4 py-2.5 shadow-2xl backdrop-blur-2xl text-white">
-              {/* Back to Chat */}
+            {/* FLOATING BOTTOM CONTROL BAR (Chat, Publish, See the Code, Open in Live Web) */}
+            <div className="fixed bottom-6 inset-x-0 z-40 mx-auto flex w-fit max-w-[94vw] items-center gap-2 rounded-full bg-[#081226]/95 border border-blue-500/30 px-3.5 py-2 shadow-[0_10px_35px_rgba(0,0,0,0.8),0_0_30px_rgba(37,99,235,0.3)] backdrop-blur-2xl text-white">
+              {/* 1. Chat */}
               <button
                 type="button"
                 onClick={() => goToSlide("chat")}
-                className="flex items-center gap-1.5 rounded-full bg-zinc-800/90 hover:bg-zinc-700 px-3.5 py-1.5 text-xs font-semibold text-zinc-100 transition active:scale-95 cursor-pointer shrink-0"
+                className="flex items-center gap-1.5 rounded-full bg-blue-950/60 hover:bg-blue-900/60 border border-blue-500/30 px-3.5 py-1.5 text-xs font-semibold text-blue-100 transition active:scale-95 cursor-pointer shrink-0"
                 title="Return to Chat"
               >
-                <ChevronLeft className="size-4" />
+                <ChevronLeft className="size-3.5" />
                 <span>Chat</span>
               </button>
 
-              {/* Open in Live Web (Opens in external window/tab genuinely) */}
+              {/* 2. Publish */}
+              <button
+                type="button"
+                onClick={openPublishModal}
+                className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 border border-blue-400/30 px-3.5 py-1.5 text-xs font-bold text-white transition active:scale-95 cursor-pointer shrink-0 shadow-[0_0_15px_rgba(37,99,235,0.4)]"
+                title="Publish application"
+              >
+                <Rocket className="size-3.5 text-pink-300" />
+                <span>Publish</span>
+              </button>
+
+              {/* 3. See the Code */}
+              <button
+                type="button"
+                onClick={() => setShowCodeExplorerModal(true)}
+                className="flex items-center gap-1.5 rounded-full bg-pink-950/40 hover:bg-pink-900/50 border border-pink-500/30 px-3.5 py-1.5 text-xs font-semibold text-pink-200 transition active:scale-95 cursor-pointer shrink-0"
+                title="View full project code"
+              >
+                <FileCode2 className="size-3.5 text-pink-400" />
+                <span>See the Code</span>
+              </button>
+
+              {/* 4. Open in Live Web */}
               <button
                 type="button"
                 onClick={async () => {
@@ -2922,22 +2838,12 @@ function BuildPage() {
                     window.open(`${window.location.origin}/p/${slug}`, "_blank", "noopener,noreferrer");
                   }
                 }}
-                className="flex items-center gap-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 px-3.5 py-1.5 text-xs font-semibold text-white transition active:scale-95 cursor-pointer shrink-0"
+                className="flex items-center gap-1.5 rounded-full bg-blue-500/15 hover:bg-blue-500/25 border border-blue-400/30 px-3.5 py-1.5 text-xs font-semibold text-blue-200 transition active:scale-95 cursor-pointer shrink-0"
                 title="Open directly in live web browser"
               >
-                <Globe className="size-3.5 text-emerald-400" />
+                <Globe className="size-3.5 text-cyan-400" />
                 <span>Open in Live Web</span>
-                <ExternalLink className="size-3 text-zinc-400" />
-              </button>
-
-              {/* More / Project Settings */}
-              <button
-                type="button"
-                onClick={() => setProjectMenuOpen(true)}
-                className="flex size-8 items-center justify-center rounded-full bg-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-700 transition active:scale-95 cursor-pointer shrink-0"
-                title="Project Menu & Code Explorer"
-              >
-                <MoreHorizontal className="size-3.5" />
+                <ExternalLink className="size-3 text-blue-300" />
               </button>
             </div>
           </div>
@@ -2946,6 +2852,7 @@ function BuildPage() {
         {plusMenuOverlay}
         {githubModalOverlay}
         {toolApiKeyModalOverlay}
+        {codeExplorerModal}
 
         {/* Publish & Share Hub Modal */}
         {publishOpen && (
@@ -3478,6 +3385,7 @@ function BuildPage() {
       {githubModalOverlay}
       {sharedFileInputs}
       {plusMenuOverlay}
+      {toolApiKeyModalOverlay}
 
       {/* Cosmic background ambient glowing curves matching screenshot 1 */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
@@ -3602,33 +3510,73 @@ function BuildPage() {
         ) : (
           /* ==================== SCREENSHOT 1 LANDING UI ==================== */
           <div className="my-auto flex flex-col items-center justify-center text-center max-w-2xl mx-auto py-6 space-y-6">
-            {/* Top Connected Tools Pill matching screenshot 1 */}
-            <div className="inline-flex items-center gap-3 rounded-full border border-white/20 bg-zinc-900/85 px-4 py-2 shadow-[0_0_30px_rgba(79,70,229,0.3)] backdrop-blur-xl">
+            {/* Top Connected Tools Pill with Official Logos */}
+            <div className="inline-flex items-center gap-3 rounded-full border border-blue-500/30 bg-[#09142b]/90 px-4 py-2 shadow-[0_0_30px_rgba(37,99,235,0.3)] backdrop-blur-xl">
               <div className="flex items-center -space-x-1.5">
-                <div className="flex size-6 items-center justify-center rounded-full bg-red-500 text-white font-bold text-[10px]">M</div>
-                <div className="flex size-6 items-center justify-center rounded-full bg-emerald-500 text-white font-bold text-[10px]">S</div>
-                <div className="flex size-6 items-center justify-center rounded-full bg-blue-500 text-white font-bold text-[10px]">G</div>
-                <div className="flex size-6 items-center justify-center rounded-full bg-zinc-800 text-white font-bold text-[10px]">N</div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedToolForApiKey("Gmail");
+                    setToolApiKeyValue(userToolKeys["Gmail"] || "");
+                  }}
+                  className="flex size-7 items-center justify-center rounded-full bg-white border border-blue-400/40 p-1 shadow-xs hover:scale-110 transition cursor-pointer"
+                  title="Configure Gmail"
+                >
+                  <GmailLogo className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedToolForApiKey("Google Maps Platform");
+                    setToolApiKeyValue(userToolKeys["Google Maps Platform"] || userToolKeys["Google Maps"] || "");
+                  }}
+                  className="flex size-7 items-center justify-center rounded-full bg-white border border-blue-400/40 p-1 shadow-xs hover:scale-110 transition cursor-pointer"
+                  title="Configure Google Maps"
+                >
+                  <GoogleMapsLogo className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedToolForApiKey("Stripe");
+                    setToolApiKeyValue(userToolKeys["Stripe"] || "");
+                  }}
+                  className="flex size-7 items-center justify-center rounded-full bg-white border border-blue-400/40 p-1 shadow-xs hover:scale-110 transition cursor-pointer"
+                  title="Configure Stripe"
+                >
+                  <StripeLogo className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedToolForApiKey("GitHub");
+                    setToolApiKeyValue(userToolKeys["GitHub"] || "");
+                  }}
+                  className="flex size-7 items-center justify-center rounded-full bg-zinc-900 border border-blue-400/40 p-1 shadow-xs hover:scale-110 transition cursor-pointer"
+                  title="Configure GitHub"
+                >
+                  <GitHubLogo className="size-4 text-white" />
+                </button>
               </div>
-              <div className="h-3 w-px bg-white/20" />
+              <div className="h-3.5 w-px bg-blue-400/30" />
               <button
                 type="button"
                 onClick={() => setMenuOpen(true)}
-                className="flex items-center gap-1.5 text-xs font-semibold text-zinc-200 hover:text-white transition cursor-pointer"
+                className="flex items-center gap-1.5 text-xs font-semibold text-blue-100 hover:text-white transition cursor-pointer"
               >
                 <span>Connect all your tools</span>
-                <span className="text-amber-400">→</span>
+                <span className="text-pink-400">→</span>
               </button>
             </div>
 
             {/* Hero Heading: What should we build, Lucky? */}
             <h1 className="font-serif text-4xl sm:text-6xl md:text-7xl font-normal tracking-tight text-white text-center leading-[1.1]">
-              What should we build, <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-pink-500 bg-clip-text text-transparent font-bold">Lucky?</span>
+              What should we build, <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-pink-500 bg-clip-text text-transparent font-bold">Lucky?</span>
             </h1>
 
             {/* Glassy Input Box with Glowing Neon Border matching screenshot 1 */}
-            <div className="w-full max-w-xl rounded-3xl border border-transparent bg-gradient-to-r from-blue-500/50 via-purple-500/50 to-pink-500/50 p-0.5 shadow-[0_0_50px_rgba(168,85,247,0.3)]">
-              <div className="flex flex-col rounded-[22px] bg-[#0c0910] p-4 sm:p-5 backdrop-blur-2xl space-y-3 text-left">
+            <div className="w-full max-w-xl rounded-3xl border border-transparent bg-gradient-to-r from-blue-500/50 via-purple-500/50 to-pink-500/50 p-0.5 shadow-[0_0_50px_rgba(37,99,235,0.3)]">
+              <div className="flex flex-col rounded-[22px] bg-[#081226] p-4 sm:p-5 backdrop-blur-2xl space-y-3 text-left">
                 <textarea
                   value={idea}
                   onChange={(e) => setIdea(e.target.value)}
@@ -3644,38 +3592,35 @@ function BuildPage() {
                   }}
                   rows={2}
                   placeholder="Describe what you want to create..."
-                  className="w-full resize-none bg-transparent text-sm sm:text-base text-white placeholder-zinc-500 outline-none font-sans leading-relaxed"
+                  className="w-full resize-none bg-transparent text-sm sm:text-base text-white placeholder-blue-300/40 outline-none font-sans leading-relaxed"
                 />
 
-                <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                <div className="flex items-center justify-between pt-2 border-t border-blue-500/20">
                   {/* Left Plus Button */}
                   <button
                     type="button"
                     onClick={() => setMenuOpen(true)}
-                    className="flex size-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer shadow-md"
+                    className="flex size-10 items-center justify-center rounded-full bg-blue-500/15 hover:bg-blue-500/25 border border-blue-400/30 text-white transition cursor-pointer shadow-md"
                     title="Attach images, folder or connect tools"
                   >
-                    <Plus className="size-5" />
+                    <Plus className="size-5 text-blue-200" />
                   </button>
 
                   <div className="flex items-center gap-2">
-                    {/* Build Pill Selector */}
-                    <div className="flex items-center gap-1 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 px-3.5 py-1.5 text-xs font-semibold text-white transition cursor-pointer">
-                      <span>Build</span>
-                      <ChevronDown className="size-3 text-zinc-400" />
-                    </div>
-
-                    {/* Mic Button */}
                     <button
                       type="button"
-                      onClick={toggle}
-                      className={cn(
-                        "flex size-10 items-center justify-center rounded-full transition cursor-pointer shadow-md",
-                        listening ? "bg-red-500 text-white animate-pulse" : "bg-white/10 hover:bg-white/20 text-white",
-                      )}
-                      title="Voice input"
+                      disabled={!idea.trim() || plan.isPending}
+                      onClick={() => {
+                        if (idea.trim() && !plan.isPending) {
+                          const toBuild = idea.trim();
+                          setIdea("");
+                          plan.mutate(toBuild);
+                        }
+                      }}
+                      className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-600 via-indigo-600 to-pink-500 hover:from-blue-500 hover:to-pink-400 px-5 py-2 text-xs font-bold text-white shadow-[0_0_20px_rgba(37,99,235,0.4)] disabled:opacity-40 transition active:scale-95 cursor-pointer"
                     >
-                      {listening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+                      <span>Build</span>
+                      <Send className="size-3.5" />
                     </button>
                   </div>
                 </div>
@@ -3685,8 +3630,8 @@ function BuildPage() {
             {/* Attached Context Preview Badges */}
             <div className="flex flex-wrap justify-center gap-2">
               {importedRepo && (
-                <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-zinc-900 text-zinc-200 px-3.5 py-1 text-xs">
-                  <Github className="size-3.5 text-amber-400" />
+                <div className="flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-[#09142b] text-blue-200 px-3.5 py-1 text-xs">
+                  <GitHubLogo className="size-3.5 text-white" />
                   <span className="font-semibold">{importedRepo.owner}/{importedRepo.repo}</span>
                   <button type="button" onClick={() => setImportedRepo(null)} className="ml-1 text-zinc-400 hover:text-red-400">
                     <X className="size-3" />
@@ -3694,7 +3639,7 @@ function BuildPage() {
                 </div>
               )}
               {folderName && (
-                <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-zinc-900 text-zinc-200 px-3.5 py-1 text-xs">
+                <div className="flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-[#09142b] text-blue-200 px-3.5 py-1 text-xs">
                   <Folder className="size-3.5 text-blue-400" />
                   <span>Folder: <strong>{folderName}</strong></span>
                   <button type="button" onClick={() => { setFolderName(null); setFolderContext(null); }} className="ml-1 text-zinc-400 hover:text-red-400">
@@ -3706,44 +3651,6 @@ function BuildPage() {
           </div>
         )}
       </div>
-
-      {/* Screenshot 2 Bottom Floating Action Bar matching screenshot */}
-      <footer className="relative z-20 px-4 pb-6 pt-2 flex justify-center">
-        <div className="flex items-center gap-3 rounded-full bg-zinc-950/90 border border-white/15 px-5 py-3 shadow-2xl backdrop-blur-2xl text-white">
-          <button
-            type="button"
-            onClick={() => reset()}
-            className="flex items-center gap-1.5 text-xs font-semibold text-zinc-300 hover:text-white transition cursor-pointer"
-          >
-            <span>&lt; Chat</span>
-          </button>
-          <div className="h-4 w-px bg-white/15" />
-          <button
-            type="button"
-            onClick={toggle}
-            className="flex size-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition cursor-pointer"
-            title="Voice input"
-          >
-            <Mic className="size-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setProjectMenuOpen(true)}
-            className="flex size-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition cursor-pointer"
-            title="More options"
-          >
-            <MoreHorizontal className="size-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={openPublishModal}
-            className="flex items-center gap-1.5 rounded-full bg-blue-600 hover:bg-blue-500 px-4 py-1.5 text-xs font-bold text-white shadow-lg transition cursor-pointer"
-          >
-            <span className="size-1.5 rounded-full bg-white animate-pulse" />
-            <span>Publish</span>
-          </button>
-        </div>
-      </footer>
 
       <UpgradeModal
         isOpen={showUpgradeModal}
