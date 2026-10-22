@@ -667,13 +667,13 @@ function CodeBlock({
 
 export function RichMessage({
   content,
-  variant = "default",
+  variant = "dark",
 }: {
   content: string;
   variant?: "default" | "dark";
 }) {
   const safeContent = typeof content === "string" ? content : String(content ?? "");
-  const isDark = variant === "dark";
+  const isDark = true;
   // 1. Detect markdown links to YouTube: [title](https://youtube.com/...)
   const mdYtRe =
     /\[([^\]]*)\]\((https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)[^\s)]+)\)/gi;

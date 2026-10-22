@@ -692,15 +692,7 @@ function ChatLayout() {
             onClick={() => setDrawerOpen(false)}
             className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs text-blue-200/80 hover:text-white hover:bg-blue-600/20 transition"
           >
-            <Database className="size-3.5 text-blue-400" /> Sheets and Data
-          </Link>
-
-          <Link
-            to="/agent"
-            onClick={() => setDrawerOpen(false)}
-            className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs text-blue-200/80 hover:text-white hover:bg-blue-600/20 transition"
-          >
-            <Sparkles className="size-3.5 text-blue-400" /> Automation Agent
+            <Folder className="size-3.5 text-blue-400" /> Projects
           </Link>
 
           <Link
@@ -736,11 +728,11 @@ function ChatLayout() {
           </Link>
 
           <Link
-            to="/video"
+            to="/voice"
             onClick={() => setDrawerOpen(false)}
             className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs text-blue-200/80 hover:text-white hover:bg-blue-600/20 transition"
           >
-            <Film className="size-3.5 text-blue-400" /> Video Studio
+            <Mic className="size-3.5 text-blue-400" /> Voice Assistant
           </Link>
 
           <button

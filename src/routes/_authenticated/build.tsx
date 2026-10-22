@@ -10,7 +10,7 @@ import {
   Github, GitBranch, ThumbsUp, ThumbsDown, Link2, Pencil, MoreHorizontal, Square,
   Code2, MonitorPlay, Lock, Search, RefreshCw, Trash2, Settings, LayoutGrid, Telescope,
   Presentation, Bot, MessageSquare, Blocks, CreditCard, BookOpen, Bell, Maximize2,
-  Mail, ShoppingBag, HardDrive, FileText, Flame, PhoneCall, FileCode2,
+  Mail, ShoppingBag, HardDrive, FileText, Flame, PhoneCall, FileCode2, Download, MoreVertical,
 } from "lucide-react";
 import amberWavesBg from "@/assets/images/amber_waves_bg_1791883311977.jpg";
 import amberGlassOrb from "@/assets/images/amber_glass_orb_1791883331076.jpg";
@@ -365,6 +365,27 @@ function BuildPage() {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [isBuilding, setIsBuilding] = useState(false);
   const pollTimerRef = useRef<any>(null);
+
+  function handleDownloadApp() {
+    const files = built?.files || userProjectFiles;
+    if (files.length === 0) {
+      toast.error("No source files available to download.");
+      return;
+    }
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+      name: built?.name || "My Project",
+      description: built?.description || "Built with My AI Pro",
+      files: files,
+      downloadedAt: new Date().toISOString()
+    }, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `${(built?.name || "my-app").toLowerCase().replace(/[^a-z0-9-]+/g, "-")}-source-bundle.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    toast.success("Full app downloaded to your device!");
+  }
 
   // API Key integration state
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
@@ -2202,19 +2223,81 @@ function BuildPage() {
         {sharedFileInputs}
         {projectControlCenterModal}
 
-        {/* Top Bar: [ X ]   [ Project Name v ]   [ > ] with classic blue UI and luminous pills */}
+        {/* Top Bar: [ X ] [ ... ]   [ Project Name v ]   [ > ] with classic blue UI and luminous pills */}
         <header className="flex h-14 shrink-0 items-center justify-between px-4 sm:px-6 bg-[#081226]/90 z-30 border-b border-blue-500/20 backdrop-blur-md">
-          {/* Left: Close / Back button returning to no-code platform */}
-          <button
-            type="button"
-            onClick={() => {
-              setBuilt(null);
-            }}
-            className="flex size-8 items-center justify-center rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-200 hover:text-white hover:bg-blue-500/20 transition cursor-pointer"
-            title="Cancel and return to no-code platform"
-          >
-            <X className="size-4" />
-          </button>
+          {/* Left: Close / Back button + Three Dots Menu */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setBuilt(null);
+              }}
+              className="flex size-8 items-center justify-center rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-200 hover:text-white hover:bg-blue-500/20 transition cursor-pointer"
+              title="Cancel and return to no-code platform"
+            >
+              <X className="size-4" />
+            </button>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setPreviewMenuOpen(!previewMenuOpen)}
+                className="flex size-8 items-center justify-center rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-200 hover:text-white hover:bg-blue-500/20 transition cursor-pointer"
+                title="More options"
+              >
+                <MoreVertical className="size-4" />
+              </button>
+
+              {previewMenuOpen && (
+                <div className="absolute left-0 top-full mt-1.5 w-52 rounded-2xl border border-blue-500/30 bg-[#0c1938] p-1.5 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewMenuOpen(false);
+                      openPublishModal();
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-white hover:bg-blue-600/20 transition text-left cursor-pointer"
+                  >
+                    <Rocket className="size-4 text-pink-400" />
+                    <span>Publish</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewMenuOpen(false);
+                      goToSlide("chat");
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-white hover:bg-blue-600/20 transition text-left cursor-pointer"
+                  >
+                    <ChevronLeft className="size-4 text-blue-400" />
+                    <span>Back to chat</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewMenuOpen(false);
+                      setShowCodeExplorerModal(true);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-white hover:bg-blue-600/20 transition text-left cursor-pointer"
+                  >
+                    <FileCode2 className="size-4 text-pink-300" />
+                    <span>See the code</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewMenuOpen(false);
+                      handleDownloadApp();
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-white hover:bg-blue-600/20 transition text-left cursor-pointer"
+                  >
+                    <Download className="size-4 text-cyan-400" />
+                    <span>Download the app</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Center: Project Name Dropdown Pill */}
           <button

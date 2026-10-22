@@ -1,6 +1,7 @@
-import React, { useState } from "react";
-import { MessageSquare, MonitorPlay, Code2, ArrowLeft, Rocket, ExternalLink, Sparkles, BookOpen, Heart } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { MessageSquare, MonitorPlay, Code2, ArrowLeft, Rocket, ExternalLink, Sparkles, BookOpen, Heart, MoreVertical, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface PreviewProps {
   appName: string;
@@ -9,6 +10,7 @@ interface PreviewProps {
   onBackToChat: () => void;
   onPublish: () => void;
   onOpenLiveView: () => void;
+  onSeeCode?: () => void;
 }
 
 export function Preview({
@@ -18,8 +20,44 @@ export function Preview({
   onBackToChat,
   onPublish,
   onOpenLiveView,
+  onSeeCode,
 }: PreviewProps) {
   const [activeTab, setActiveTab] = useState<"preview" | "book">("preview");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    if (menuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
+
+  function handleDownloadApp() {
+    const payload = {
+      name: appName,
+      description: appDescription,
+      preview_html: previewHtml || "",
+      exportedAt: new Date().toISOString(),
+      platform: "My AI Pro Universal Applet",
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${appName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-full-app.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Full app downloaded successfully to your device!");
+    setMenuOpen(false);
+  }
 
   return (
     <div className="flex h-[100dvh] w-full flex-col bg-[#0f0f11] text-white font-sans antialiased overflow-hidden">
@@ -34,6 +72,70 @@ export function Preview({
             <ArrowLeft className="size-4" />
             <span>Back to Chat</span>
           </button>
+
+          {/* 3 Dots Menu next to Back to Chat / Cancel logo */}
+          <div className="relative" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              className={cn(
+                "flex size-9 items-center justify-center rounded-xl transition cursor-pointer",
+                menuOpen ? "bg-white/20 text-white" : "bg-white/10 text-zinc-300 hover:bg-white/20 hover:text-white"
+              )}
+              title="More options"
+              aria-label="More options"
+            >
+              <MoreVertical className="size-4" />
+            </button>
+
+            {menuOpen && (
+              <div className="absolute left-0 mt-2 w-52 rounded-2xl bg-[#1c1c1e] p-1.5 shadow-2xl border border-white/10 z-50 animate-in fade-in zoom-in-95">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onPublish();
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-white hover:bg-white/10 transition text-left cursor-pointer"
+                >
+                  <Rocket className="size-4 text-indigo-400" />
+                  <span>Publish</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onBackToChat();
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-white hover:bg-white/10 transition text-left cursor-pointer"
+                >
+                  <ArrowLeft className="size-4 text-zinc-400" />
+                  <span>Back to chat</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    if (onSeeCode) onSeeCode();
+                    else toast.info("Code explorer is available in the build view.");
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-white hover:bg-white/10 transition text-left cursor-pointer"
+                >
+                  <Code2 className="size-4 text-emerald-400" />
+                  <span>See the code</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadApp}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-white hover:bg-white/10 transition text-left cursor-pointer border-t border-white/5 mt-1 pt-2"
+                >
+                  <Download className="size-4 text-blue-400" />
+                  <span>Download the app</span>
+                </button>
+              </div>
+            )}
+          </div>
+
           <div className="h-4 w-px bg-white/10" />
           <div className="flex items-center gap-2">
             <div className="flex size-7 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold text-xs">

@@ -5,11 +5,9 @@ import {
   Telescope,
   MessageSquare,
   Mic,
-  Database,
+  Folder,
   Monitor,
   Bot,
-  Film,
-  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,11 +16,9 @@ export type FeatureTabId =
   | "research"
   | "chat"
   | "voice"
-  | "sheets"
+  | "projects"
   | "slides"
-  | "cowork"
-  | "video"
-  | "agent";
+  | "cowork";
 
 export interface FeatureNavBarProps {
   activeTab: FeatureTabId;
@@ -36,15 +32,13 @@ const FEATURES: {
   path: string;
   icon: React.ComponentType<{ className?: string }>;
 }[] = [
-  { id: "build", label: "Co-code", path: "/build", icon: Code2 },
+  { id: "build", label: "No-Code Platform", path: "/build", icon: Code2 },
   { id: "research", label: "Deep Research", path: "/research", icon: Telescope },
   { id: "chat", label: "AI Chat", path: "/chat", icon: MessageSquare },
   { id: "voice", label: "Voice Assistant", path: "/voice", icon: Mic },
-  { id: "sheets", label: "Sheets and Data", path: "/projects", icon: Database },
-  { id: "slides", label: "Slides", path: "/presentations", icon: Monitor },
+  { id: "projects", label: "Projects", path: "/projects", icon: Folder },
+  { id: "slides", label: "Slide Presentations", path: "/presentations", icon: Monitor },
   { id: "cowork", label: "My AI Co-worker", path: "/cowork", icon: Bot },
-  { id: "video", label: "Video Studio", path: "/video", icon: Film },
-  { id: "agent", label: "Automation Agent", path: "/agent", icon: Sparkles },
 ];
 
 export function FeatureNavBar({
