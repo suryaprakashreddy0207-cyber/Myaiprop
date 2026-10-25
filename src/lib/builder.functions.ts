@@ -139,14 +139,17 @@ Return ONLY valid JSON:
 
 CRITICAL RULES:
 1. Provide 4 to 5 questions with 3 concrete options each.
-2. API KEY DETECTION: If the user idea involves ANY external API or service (e.g. OpenAI / Claude / Advanced AI, Stripe / PayPal, Google Maps, OpenWeather / Weather, Supabase / Firebase, Twilio / SMS, SendGrid / Resend, GitHub API, Spotify, etc.) OR if external APIs will power the application:
-   You MUST include an explicit question asking about that API key / credential:
-   - question: "Do you have an API key for [Service Name] to connect, or should we skip for now?"
-   - options: ["Enter my API key now", "Skip for now (use mock data & .env placeholder)", "Configure in .env later"]
-   - requiresApiKey: true
-   - apiKeyName: "e.g. OpenAI API Key" or the specific service
-   - apiKeyPlaceholder: "e.g. sk-..." or "pk_live_..."
-   - apiKeyHelp: "Enter your API key to integrate into code, or skip to use mock data during development."
+2. DATABASE & API KEY DETECTION:
+   - If the user idea requires ANY database, backend data storage, user accounts, or cloud storage (e.g. Firebase, Supabase, Cloud DB, PostgreSQL, MongoDB, SQL, Firestore, Appwrite, or custom Database API):
+     You MUST include an explicit question asking for that Database API ID / Project Key:
+     * question: "Do you have a Database API ID / Project Key to connect data storage, or should we use mock local storage?"
+     * options: ["Enter Database API ID / Key now", "Use mock local storage (no credentials needed)", "Configure in .env later"]
+     * requiresApiKey: true
+     * apiKeyName: "Database API ID / Project Key"
+     * apiKeyPlaceholder: "e.g. your-project-id or db-key-..."
+     * apiKeyHelp: "Enter your database project ID or API key to connect live data storage, or skip for mock storage during preview."
+   - If the user idea involves external services or APIs (OpenAI, Stripe, Google Maps, Twilio, etc.):
+     Include a question asking for that service API key with requiresApiKey: true.
 3. Ask questions about target platform, core feature priority, look & feel, and tech stack.
 4. No markdown formatting, no commentary. Output ONLY the JSON object.`;
 
@@ -185,7 +188,8 @@ CRITICAL RULES:
     }
 
     const lower = data.idea.toLowerCase();
-    const needsApi = /api|key|openai|stripe|pay|weather|map|google|auth|mail|twilio|database|cloud/i.test(lower);
+    const needsDatabase = /database|db|firebase|supabase|firestore|mongodb|sql|postgres|cloud\s*db|store\s*data|user\s*account|backend/i.test(lower);
+    const needsApi = /api|key|openai|stripe|pay|weather|map|google|auth|mail|twilio|cloud/i.test(lower) || needsDatabase;
 
     if (isEditingExisting) {
       const editFallbackQuestions: BuilderQuestion[] = [
@@ -215,7 +219,20 @@ CRITICAL RULES:
         },
       ];
 
-      if (needsApi) {
+      if (needsDatabase) {
+        editFallbackQuestions.push({
+          question: "Do you have a Database API ID / Project Key to connect data storage for this update?",
+          options: [
+            "Enter Database API ID / Key now",
+            "Use existing app storage / mock data",
+            "Configure in .env later",
+          ],
+          requiresApiKey: true,
+          apiKeyName: "Database API ID / Project Key",
+          apiKeyPlaceholder: "Enter Database Project ID or Key (e.g. my-project-id or db-key-123)",
+          apiKeyHelp: "Will be wired directly into your application's database configuration.",
+        });
+      } else if (needsApi) {
         editFallbackQuestions.push({
           question: "Do you want to configure an API key for this integration?",
           options: [
@@ -252,7 +269,20 @@ CRITICAL RULES:
       },
     ];
 
-    if (needsApi) {
+    if (needsDatabase) {
+      fallbackQuestions.splice(1, 0, {
+        question: "Does your application require a Database API ID / Project Key for backend data storage?",
+        options: [
+          "Enter Database API ID / Key now",
+          "Use mock local persistent storage (no key required)",
+          "Configure in .env later",
+        ],
+        requiresApiKey: true,
+        apiKeyName: "Database API ID / Project Key (e.g. Firebase, Supabase, Cloud DB)",
+        apiKeyPlaceholder: "Enter Database API ID or Key (e.g. my-project-id or db-key-...)",
+        apiKeyHelp: "Our coding agent will connect this Database API ID directly into your data models and CRUD operations.",
+      });
+    } else if (needsApi) {
       fallbackQuestions.splice(2, 0, {
         question: "How should external API integrations and API keys be configured?",
         options: [

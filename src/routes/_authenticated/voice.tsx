@@ -35,6 +35,7 @@ import {
   getCurrentQuotas,
   triggerUpgradeModal,
 } from "@/lib/subscription";
+import { getActiveUserStorageKey } from "@/lib/user-session";
 
 export const Route = createFileRoute("/_authenticated/voice")({
   head: () => ({
@@ -142,6 +143,58 @@ export function VoiceAssistantPage() {
   const cameraMenuRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
+
+  const startSpeechRecognitionRef = useRef<() => void>(() => {});
+
+  const handleOpenInVisualBuilder = useCallback((code: string, filename: string, title?: string) => {
+    const projId = `proj-${Date.now()}`;
+    const appName = title || (filename ? filename.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ") : "Generated Application");
+    const isHtml = filename?.endsWith(".html") || code.includes("<!DOCTYPE") || code.includes("<html");
+    const previewHtml = isHtml
+      ? code
+      : `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><script src="https://cdn.tailwindcss.com"></script></head><body class="bg-zinc-950 text-white p-6 font-sans"><div id="root">${code}</div></body></html>`;
+
+    const newProj = {
+      id: projId,
+      name: appName,
+      description: `Created in Voice Assistant: ${filename}`,
+      preview_html: previewHtml,
+      files: [
+        { path: filename || "src/App.tsx", language: filename?.endsWith(".html") ? "html" : "typescript", content: code },
+        { path: "index.html", language: "html", content: previewHtml },
+        { path: "package.json", language: "json", content: JSON.stringify({ name: appName.toLowerCase().replace(/[^a-z0-9-]+/g, "-"), private: true, version: "1.0.0", dependencies: { react: "^18.3.1", "react-dom": "^18.3.1" } }, null, 2) },
+      ],
+      idea: title || appName,
+      at: Date.now(),
+      status: "completed",
+      totalFiles: 3,
+      completedFiles: 3,
+      turns: [
+        {
+          id: `turn-${Date.now()}`,
+          prompt: `Create ${appName}`,
+          at: Date.now(),
+          thoughtSeconds: 5,
+          aiSummary: `Generated production code for ${appName} with interactive preview.`,
+          activityLabel: `Exploring ${appName} flow`,
+          status: "completed",
+        },
+      ],
+    };
+
+    try {
+      sessionStorage.setItem("myaibro_open_project", JSON.stringify(newProj));
+      const storageKey = getActiveUserStorageKey("myaibro_builds_v2");
+      const existing = localStorage.getItem(storageKey);
+      const parsed = existing ? JSON.parse(existing) : [];
+      localStorage.setItem(storageKey, JSON.stringify([newProj, ...(Array.isArray(parsed) ? parsed : [])]));
+    } catch {
+      // ignore
+    }
+
+    toast.success(`Opening "${appName}" in No-Code Platform...`);
+    navigate({ to: "/build", search: { openLatest: true, id: projId } });
+  }, [navigate]);
 
   isRecordingRef.current = isRecording;
   isMutedRef.current = isMuted;
@@ -383,10 +436,13 @@ export function VoiceAssistantPage() {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
-    if (state === "speaking") {
-      setState(isRecording && !isMuted ? "listening" : "idle");
+    if (stateRef.current === "speaking") {
+      setState(isRecordingRef.current && !isMutedRef.current ? "listening" : "idle");
+      if (isRecordingRef.current && !isMutedRef.current) {
+        startSpeechRecognitionRef.current();
+      }
     }
-  }, [state, isRecording, isMuted]);
+  }, []);
 
   const speakText = useCallback(
     (textToSpeak: string) => {
@@ -430,12 +486,18 @@ export function VoiceAssistantPage() {
       utterance.onend = () => {
         if (!isSpeakingCancelledRef.current) {
           setState(isRecordingRef.current && !isMutedRef.current ? "listening" : "idle");
+          if (isRecordingRef.current && !isMutedRef.current) {
+            startSpeechRecognitionRef.current();
+          }
         }
       };
 
       utterance.onerror = (e) => {
         if (e.error !== "canceled") {
           setState(isRecordingRef.current && !isMutedRef.current ? "listening" : "idle");
+          if (isRecordingRef.current && !isMutedRef.current) {
+            startSpeechRecognitionRef.current();
+          }
         }
       };
 
@@ -682,6 +744,14 @@ export function VoiceAssistantPage() {
       // ignore
     }
   }, [inputLanguage, sttEngine, triggerAlternativeTranscription]);
+
+  startSpeechRecognitionRef.current = startSpeechRecognition;
+
+  useEffect(() => {
+    if (state === "listening" && isRecording && !isMuted && !isRecognitionRunningRef.current) {
+      startSpeechRecognition();
+    }
+  }, [state, isRecording, isMuted, startSpeechRecognition]);
 
   const stopSpeechRecognition = useCallback(() => {
     clearTimeout(silenceTimerRef.current);
@@ -1071,6 +1141,69 @@ export function VoiceAssistantPage() {
         </div>
       )}
 
+      {/* Visual Stream Element & Live Screen/Camera Vision Preview Card */}
+      <div
+        className={cn(
+          "fixed z-40 transition-all duration-300 shadow-2xl rounded-2xl overflow-hidden border border-emerald-500/50 bg-neutral-950 p-2.5 backdrop-blur-md",
+          videoSourceMode !== "none"
+            ? "top-16 right-4 sm:right-6 w-64 sm:w-80 space-y-2 block"
+            : "hidden",
+        )}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className="size-2 rounded-full bg-emerald-400 animate-ping" />
+            <span className="text-xs font-bold text-white capitalize">
+              {videoSourceMode === "screen"
+                ? "Live Screen Shared"
+                : `${videoSourceMode} Camera Active`}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                const snap = captureVideoSnapshot();
+                if (snap) {
+                  toast.success("Snapshot captured for AI assistant!");
+                }
+              }}
+              className="text-[10px] font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 px-2 py-0.5 rounded-lg border border-white/10 transition cursor-pointer"
+              title="Capture snapshot"
+            >
+              Snapshot
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                stopVideoStream();
+                toast.info("Turned off visual stream");
+              }}
+              className="text-[10px] font-bold bg-red-500/20 hover:bg-red-500/40 text-red-300 px-2 py-0.5 rounded-lg border border-red-500/30 transition cursor-pointer"
+            >
+              Stop
+            </button>
+          </div>
+        </div>
+
+        <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black border border-neutral-800">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="size-full object-cover"
+          />
+        </div>
+
+        <div className="flex items-center justify-between text-[10px] text-neutral-400 px-1">
+          <span className="flex items-center gap-1 text-emerald-400 font-medium">
+            <Sparkles className="size-3 animate-pulse" /> Live AI Vision Active
+          </span>
+          <span className="text-neutral-500">Multimodal Assistant</span>
+        </div>
+      </div>
+
       {/* Main Canvas Area */}
       <main className="relative z-10 flex-1 flex flex-col justify-end px-4 pb-2 overflow-hidden">
         {/* Soft Ambient Audio Waveform Aura in Center */}
@@ -1134,12 +1267,19 @@ export function VoiceAssistantPage() {
                               <div className="flex items-center justify-between">
                                 <span className="font-mono text-[11px] text-amber-400 font-bold">{act.title}</span>
                                 <div className="flex items-center gap-1.5">
-                                  <Link
-                                    to="/build"
-                                    className="rounded-lg bg-neutral-800 hover:bg-neutral-700 px-2 py-0.5 text-[10px] text-amber-300 font-bold"
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleOpenInVisualBuilder(
+                                        act.codeSnippet!.code,
+                                        act.codeSnippet!.filename,
+                                        act.title,
+                                      )
+                                    }
+                                    className="rounded-lg bg-amber-500 hover:bg-amber-400 text-black px-2.5 py-1 text-[11px] font-bold transition shadow-xs cursor-pointer flex items-center gap-1"
                                   >
-                                    Visual Builder
-                                  </Link>
+                                    <span>Open in Visual Builder →</span>
+                                  </button>
                                 </div>
                               </div>
                               <pre className="text-[10px] font-mono text-neutral-300 overflow-x-auto max-h-24 p-1.5 bg-black/60 rounded">
@@ -1149,15 +1289,36 @@ export function VoiceAssistantPage() {
                           )}
 
                           {act.type === "app_launcher" && (
-                            <a
-                              href={act.appUrl || act.appScheme || "#"}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-black text-white px-3 py-1.5 text-[11px] font-bold hover:bg-neutral-800 transition shadow-xs"
-                            >
-                              <ExternalLink className="size-3" />
-                              <span>{act.title}</span>
-                            </a>
+                            act.appUrl === "/build" ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const codeAct = msg.actions?.find((a) => a.codeSnippet?.code);
+                                  if (codeAct?.codeSnippet) {
+                                    handleOpenInVisualBuilder(
+                                      codeAct.codeSnippet.code,
+                                      codeAct.codeSnippet.filename,
+                                      act.title,
+                                    );
+                                  } else {
+                                    navigate({ to: "/build", search: { openLatest: true } });
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 text-black px-3.5 py-1.5 text-[11px] font-bold hover:bg-amber-400 transition shadow-xs cursor-pointer"
+                              >
+                                <span>{act.title} →</span>
+                              </button>
+                            ) : (
+                              <a
+                                href={act.appUrl || act.appScheme || "#"}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-black text-white px-3 py-1.5 text-[11px] font-bold hover:bg-neutral-800 transition shadow-xs"
+                              >
+                                <ExternalLink className="size-3" />
+                                <span>{act.title}</span>
+                              </a>
+                            )
                           )}
 
                           {act.suggestions && act.suggestions.length > 0 && (

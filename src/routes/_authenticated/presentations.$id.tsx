@@ -494,18 +494,18 @@ function DeckPage() {
   }
 
   return (
-    <div className="flex h-[100dvh] flex-col bg-[#f4f6f8] dark:bg-zinc-950 font-sans text-ink">
-      {/* 1. TOP HEADER (Matching Screenshot) */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/40 bg-white/95 dark:bg-zinc-900/95 px-3 sm:px-4 backdrop-blur-md">
+    <div className="flex h-[100dvh] flex-col bg-[#060b19] font-sans text-white">
+      {/* 1. TOP HEADER */}
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-blue-500/20 bg-[#081226]/95 px-3 sm:px-4 backdrop-blur-md">
         <div className="flex items-center gap-2">
           <Link
             to="/presentations"
-            className="flex items-center gap-1.5 rounded-full border border-border/80 bg-surface px-3 py-1.5 text-xs font-semibold text-ink shadow-xs hover:bg-surface/80 transition"
+            className="flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-[#070e20] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-600/20 transition"
           >
             <ChevronLeft className="size-3.5" />
             <span>All decks</span>
           </Link>
-          <span className="font-serif text-sm font-bold text-ink hidden sm:block">
+          <span className="font-serif text-sm font-bold text-white hidden sm:block">
             Presentations & Slides
           </span>
         </div>
@@ -513,7 +513,7 @@ function DeckPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={handleShare}
-            className="flex size-8 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-600 shadow-xs hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-400 transition"
+            className="flex size-8 items-center justify-center rounded-full border border-blue-500/30 bg-[#070e20] text-blue-300 shadow-xs hover:bg-blue-600/20 hover:text-white transition"
             title="Share presentation"
           >
             <Share2 className="size-4" />
@@ -521,7 +521,7 @@ function DeckPage() {
 
           <button
             onClick={() => setPresent(true)}
-            className="flex items-center gap-1.5 rounded-full bg-[#d94a11] px-4 py-1.5 text-xs font-bold text-white shadow hover:bg-[#c03f0c] transition"
+            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-1.5 text-xs font-bold text-white shadow hover:brightness-110 transition"
           >
             <Play className="size-3.5 fill-current" />
             <span>Preview PPT</span>
@@ -529,7 +529,7 @@ function DeckPage() {
 
           <button
             onClick={downloadPPT}
-            className="flex size-8 items-center justify-center rounded-full bg-zinc-900 text-white shadow hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 transition"
+            className="flex size-8 items-center justify-center rounded-full bg-blue-600 text-white shadow hover:bg-blue-500 transition"
             title="Download PowerPoint (.pptx)"
           >
             <Download className="size-4" />

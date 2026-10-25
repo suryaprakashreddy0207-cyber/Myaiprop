@@ -60,6 +60,12 @@ import { ToolConnectionModal } from "@/components/tool-connection-modal";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/build")({
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      openLatest: search.openLatest === true || search.openLatest === "true",
+      id: typeof search.id === "string" ? search.id : undefined,
+    };
+  },
   head: () => ({
     meta: [
       { title: "Build your idea — My AI Bro" },
@@ -329,6 +335,7 @@ function useSpeech(onText: (t: string, isFinal?: boolean) => void) {
 }
 
 function BuildPage() {
+  const search = Route.useSearch();
   const navigate = useNavigate();
   const planFn = useServerFn(planQuestions);
   const planProjectFn = useServerFn(planProject);
@@ -482,12 +489,23 @@ function BuildPage() {
 
   function goToSlide(target: "chat" | "preview") {
     setActiveSlide(target);
-    const el = slideContainerRef.current;
-    if (el) {
-      const left = target === "chat" ? 0 : el.clientWidth;
-      el.scrollTo({ left, behavior: "smooth" });
-    }
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        const el = slideContainerRef.current;
+        if (el) {
+          const left = target === "chat" ? 0 : el.clientWidth;
+          el.scrollTo({ left, behavior: "smooth" });
+        }
+      }, 50);
+    });
   }
+
+  useEffect(() => {
+    if (slideContainerRef.current) {
+      const left = activeSlide === "chat" ? 0 : slideContainerRef.current.clientWidth;
+      slideContainerRef.current.scrollTo({ left, behavior: "smooth" });
+    }
+  }, [activeSlide, built]);
 
   function handleSlideScroll() {
     const el = slideContainerRef.current;
@@ -570,14 +588,60 @@ function BuildPage() {
         }
       }
       setHistory(loaded);
+
+      // Check if project was passed from Agent, Voice Assistant, URL, or active background build
+      let projectToOpen: HistoryItem | null = null;
+
+      // 1. Check sessionStorage for project passed from Agent or Voice
+      try {
+        const incomingRaw = sessionStorage.getItem("myaibro_open_project");
+        if (incomingRaw) {
+          const incomingParsed = JSON.parse(incomingRaw);
+          if (incomingParsed && incomingParsed.id && (incomingParsed.preview_html || incomingParsed.files?.length)) {
+            projectToOpen = incomingParsed;
+            sessionStorage.removeItem("myaibro_open_project");
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+
+      // 2. Check URL search param (?id=... or ?openLatest=true)
+      if (!projectToOpen) {
+        if (search?.id) {
+          projectToOpen = loaded.find((h) => h.id === search.id) || null;
+        } else if (search?.openLatest && loaded.length > 0) {
+          projectToOpen = loaded[0];
+        }
+      }
+
+      // 3. Check active background build in localStorage
+      const activeBuildId = localStorage.getItem(getActiveBuildStorageKey());
+      if (activeBuildId) {
+        const matchingJob = loaded.find((h) => h.id === activeBuildId);
+        if (matchingJob) {
+          projectToOpen = matchingJob;
+        }
+        startPollingJob(activeBuildId, undefined, matchingJob?.id || activeBuildId);
+      }
+
+      if (projectToOpen) {
+        if (!loaded.some((h) => h.id === projectToOpen!.id)) {
+          loaded.unshift(projectToOpen);
+          setHistory(loaded);
+          saveUserBuilds(loaded);
+        }
+        openHistoryProject(projectToOpen);
+        goToSlide("preview");
+      }
     } catch {
       setHistory([]);
     }
 
-    // No-code platform always starts fresh on open; users open past projects from History
     return () => {
       stopPolling();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function stopPolling() {
@@ -2664,6 +2728,50 @@ function BuildPage() {
                       {questions[step]?.question}
                     </p>
 
+                    {Boolean(
+                      questions[step]?.requiresApiKey ||
+                      /database|db|project\s*id|api\s*id|api\s*key|credential|token|secret/i.test(questions[step]?.question || "")
+                    ) && (
+                      <div className="rounded-2xl border border-blue-500/30 bg-[#081226] p-4 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Key className="size-4 text-blue-400" />
+                          <span className="text-xs font-semibold text-white">
+                            {questions[step]?.apiKeyName || "Database API ID / Project Key"}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-blue-200/70">
+                          {questions[step]?.apiKeyHelp || "Enter your Database API ID or Key to connect live storage, or choose an option below to skip."}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={apiKeyInputs[step] || ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setApiKeyInputs((prev) => ({ ...prev, [step]: val }));
+                            }}
+                            placeholder={questions[step]?.apiKeyPlaceholder || "Enter Database API ID / Key..."}
+                            className="flex-1 rounded-xl border border-blue-500/30 bg-[#0c1938] px-3.5 py-2 text-xs font-mono text-white placeholder:text-blue-300/40 outline-none focus:border-blue-400"
+                          />
+                          {apiKeyInputs[step]?.trim() && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const val = apiKeyInputs[step].trim();
+                                const keyTitle = questions[step]?.apiKeyName || "Database API ID / Project Key";
+                                setApiKeys((prev) => ({ ...prev, [keyTitle]: val }));
+                                setAnswers((prev) => prev.map((v, i) => (i === step ? `Configured ${keyTitle}: ${val.slice(0, 4)}...` : v)));
+                                toast.success("Database API ID saved for application integration!");
+                              }}
+                              className="rounded-xl bg-blue-600 hover:bg-blue-500 px-3 py-2 text-xs font-semibold text-white transition shrink-0"
+                            >
+                              Save Key
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="space-y-2">
                       {(questions[step]?.options ?? []).map((opt) => {
                         const selected = answers[step] === opt;
@@ -2884,64 +2992,6 @@ function BuildPage() {
                 </div>
               )}
             </div>
-
-            {/* FLOATING BOTTOM CONTROL BAR (Chat, Publish, See the Code, Open in Live Web) */}
-            <div className="fixed bottom-6 inset-x-0 z-40 mx-auto flex w-fit max-w-[94vw] items-center gap-2 rounded-full bg-[#081226]/95 border border-blue-500/30 px-3.5 py-2 shadow-[0_10px_35px_rgba(0,0,0,0.8),0_0_30px_rgba(37,99,235,0.3)] backdrop-blur-2xl text-white">
-              {/* 1. Chat */}
-              <button
-                type="button"
-                onClick={() => goToSlide("chat")}
-                className="flex items-center gap-1.5 rounded-full bg-blue-950/60 hover:bg-blue-900/60 border border-blue-500/30 px-3.5 py-1.5 text-xs font-semibold text-blue-100 transition active:scale-95 cursor-pointer shrink-0"
-                title="Return to Chat"
-              >
-                <ChevronLeft className="size-3.5" />
-                <span>Chat</span>
-              </button>
-
-              {/* 2. Publish */}
-              <button
-                type="button"
-                onClick={openPublishModal}
-                className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 border border-blue-400/30 px-3.5 py-1.5 text-xs font-bold text-white transition active:scale-95 cursor-pointer shrink-0 shadow-[0_0_15px_rgba(37,99,235,0.4)]"
-                title="Publish application"
-              >
-                <Rocket className="size-3.5 text-pink-300" />
-                <span>Publish</span>
-              </button>
-
-              {/* 3. See the Code */}
-              <button
-                type="button"
-                onClick={() => setShowCodeExplorerModal(true)}
-                className="flex items-center gap-1.5 rounded-full bg-pink-950/40 hover:bg-pink-900/50 border border-pink-500/30 px-3.5 py-1.5 text-xs font-semibold text-pink-200 transition active:scale-95 cursor-pointer shrink-0"
-                title="View full project code"
-              >
-                <FileCode2 className="size-3.5 text-pink-400" />
-                <span>See the Code</span>
-              </button>
-
-              {/* 4. Open in Live Web */}
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    const slug = await persistPublishedApp(built);
-                    const liveUrl = `${window.location.origin}/p/${slug}`;
-                    window.open(liveUrl, "_blank", "noopener,noreferrer");
-                    toast.success("Opening in live web!");
-                  } catch {
-                    const slug = built.name.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "") || "my-app";
-                    window.open(`${window.location.origin}/p/${slug}`, "_blank", "noopener,noreferrer");
-                  }
-                }}
-                className="flex items-center gap-1.5 rounded-full bg-blue-500/15 hover:bg-blue-500/25 border border-blue-400/30 px-3.5 py-1.5 text-xs font-semibold text-blue-200 transition active:scale-95 cursor-pointer shrink-0"
-                title="Open directly in live web browser"
-              >
-                <Globe className="size-3.5 text-cyan-400" />
-                <span>Open in Live Web</span>
-                <ExternalLink className="size-3 text-blue-300" />
-              </button>
-            </div>
           </div>
         </div>
 
@@ -3157,9 +3207,9 @@ function BuildPage() {
     const last = step === questions.length - 1;
     const isApiKeyQuestion = Boolean(
       q.requiresApiKey ||
-      /api\s*key|credential|token|secret|access\s*key/i.test(q.question)
+      /database|db|project\s*id|api\s*id|api\s*key|credential|token|secret|access\s*key/i.test(q.question)
     );
-    const keyName = q.apiKeyName || "Service API Key";
+    const keyName = q.apiKeyName || (/database|db|project\s*id|api\s*id/i.test(q.question) ? "Database API ID / Project Key" : "Service API Key");
 
     return (
       <div className="flex h-[100dvh] flex-col bg-canvas font-sans text-ink">

@@ -128,6 +128,15 @@ function ChatLayout() {
   // Load and sync local threads after mount and when user logs in/out
   useEffect(() => {
     setMounted(true);
+    // Clear all session unlocks on app open / mount
+    if (typeof window !== "undefined") {
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const k = sessionStorage.key(i);
+        if (k && k.startsWith("myaipro_unlocked_")) {
+          sessionStorage.removeItem(k);
+        }
+      }
+    }
     function syncForUser() {
       const sess = getActiveUserSession();
       setActiveUser(sess);
@@ -136,8 +145,35 @@ function ChatLayout() {
     }
     syncForUser();
     window.addEventListener("myaipro_auth_changed", syncForUser);
-    return () => window.removeEventListener("myaipro_auth_changed", syncForUser);
-  }, [location]);
+    return () => {
+      window.removeEventListener("myaipro_auth_changed", syncForUser);
+      // Clear unlock session when leaving chat section
+      if (typeof window !== "undefined") {
+        for (let i = sessionStorage.length - 1; i >= 0; i--) {
+          const k = sessionStorage.key(i);
+          if (k && k.startsWith("myaipro_unlocked_")) {
+            sessionStorage.removeItem(k);
+          }
+        }
+      }
+    };
+  }, []);
+
+  // When activeThreadId changes (switching between chat threads), clear session unlocks for all other threads
+  useEffect(() => {
+    if (typeof window !== "undefined" && activeThreadId) {
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const k = sessionStorage.key(i);
+        if (k && k.startsWith("myaipro_unlocked_")) {
+          const unlockedId = k.replace("myaipro_unlocked_", "");
+          if (unlockedId !== activeThreadId) {
+            sessionStorage.removeItem(k);
+          }
+        }
+      }
+      setSessionUnlocked({});
+    }
+  }, [activeThreadId]);
 
   // Merge server and local threads into a deduplicated list (only merge server threads for returning users)
   const allThreads = useMemo(() => {
@@ -205,22 +241,13 @@ function ChatLayout() {
     };
   }, [menuOpen]);
 
-  const createMut = useMutation({
-    mutationFn: (customTitle?: string) =>
-      createFn({ data: { title: customTitle || "New conversation" } }),
-    onSuccess: (t: any) => {
-      qc.invalidateQueries({ queryKey: ["threads"] });
-      setDrawerOpen(false);
-      setMenuOpen(false);
-      toast.success("New chat started");
-      navigate({ to: "/chat/$threadId", params: { threadId: t.id } });
-    },
-    onError: () => {
-      // Fallback local creation
+  const createMut = {
+    isPending: false,
+    mutate: (customTitle?: string) => {
       const newId = `local-${Date.now()}`;
       const newTh: LocalThread = {
         id: newId,
-        title: "New conversation",
+        title: customTitle || "New conversation",
         updated_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
       };
@@ -228,9 +255,11 @@ function ChatLayout() {
       saveLocalThreads([newTh, ...localThreadsState]);
       setDrawerOpen(false);
       setMenuOpen(false);
+      toast.success("New chat started");
       navigate({ to: "/chat/$threadId", params: { threadId: newId } });
+      createFn({ data: { id: newId, title: customTitle || "New conversation" } }).catch(() => {});
     },
-  });
+  };
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => deleteFn({ data: { id } }),

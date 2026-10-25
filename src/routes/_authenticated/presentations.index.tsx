@@ -244,32 +244,32 @@ function PresentationsPage() {
   }
 
   return (
-    <div className="flex h-[100dvh] flex-col bg-canvas font-sans text-ink">
+    <div className="flex h-[100dvh] flex-col bg-[#060b19] font-sans text-white">
       {/* Top navigation tabs bar */}
-      <nav className="flex h-12 shrink-0 items-center justify-between border-b border-border/40 bg-white/80 dark:bg-zinc-900/80 px-4 backdrop-blur-md">
+      <nav className="flex h-12 shrink-0 items-center justify-between border-b border-blue-500/20 bg-[#081226]/90 px-4 backdrop-blur-md">
         <div className="flex items-center gap-2">
           <Link
             to="/chat"
-            className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-surface hover:text-ink transition"
+            className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium text-blue-200/70 hover:bg-white/10 hover:text-white transition"
           >
             <MessageSquare className="size-3.5" />
             <span>AI chat</span>
           </Link>
           <Link
             to="/build"
-            className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-surface hover:text-ink transition"
+            className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium text-blue-200/70 hover:bg-white/10 hover:text-white transition"
           >
             <Cpu className="size-3.5" />
             <span>No-code</span>
           </Link>
           <Link
             to="/research"
-            className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-surface hover:text-ink transition"
+            className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium text-blue-200/70 hover:bg-white/10 hover:text-white transition"
           >
             <Telescope className="size-3.5" />
             <span>Research</span>
           </Link>
-          <div className="flex items-center gap-1.5 rounded-full bg-zinc-900 px-3.5 py-1 text-xs font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-sm">
+          <div className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 px-3.5 py-1 text-xs font-semibold text-white shadow-sm">
             <Presentation className="size-3.5" />
             <span>Presentations & Templates</span>
           </div>
@@ -277,7 +277,7 @@ function PresentationsPage() {
 
         <Link
           to="/chat"
-          className="rounded-full border border-border/80 bg-surface px-3 py-1 text-xs font-medium text-ink hover:bg-surface/80 transition"
+          className="rounded-full border border-blue-500/30 bg-[#070e20] px-3 py-1 text-xs font-medium text-blue-200 hover:bg-blue-600/20 hover:text-white transition"
         >
           Back to Chat
         </Link>
@@ -286,22 +286,22 @@ function PresentationsPage() {
       <div className="flex-1 overflow-y-auto px-4 py-8">
         <div className="mx-auto max-w-3xl">
           <div className="mb-6 text-center">
-            <h1 className="font-serif text-3xl font-bold text-ink">
+            <h1 className="font-serif text-3xl font-bold text-white">
               Presentation Maker
             </h1>
-            <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">
+            <p className="mx-auto mt-2 max-w-lg text-sm text-blue-200/70">
               Describe your topic or pitch deck. My AI creates structured slides with themes, speaker notes, and an editable Canva-style editor.
             </p>
           </div>
 
           {/* Generator Input Box */}
-          <div className="rounded-3xl border border-border/60 bg-surface p-4 shadow-sm">
+          <div className="rounded-3xl border border-blue-500/30 bg-[#0c1938] p-4 shadow-xl">
             <textarea
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               placeholder="e.g. AI & Neural Systems Revolution, Q3 Enterprise Pitch Deck, Clean Energy Transition 2026…"
               rows={3}
-              className="w-full resize-none border-none bg-transparent text-sm text-ink outline-none placeholder:text-muted-foreground"
+              className="w-full resize-none border-none bg-transparent text-sm text-white outline-none placeholder:text-blue-300/40"
             />
 
             {refs.length > 0 && (

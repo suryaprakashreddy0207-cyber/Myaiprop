@@ -16,10 +16,39 @@ import {
   type MediaPlayerInfo,
 } from "@/lib/live-search";
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: { headers: { "User-Agent": "aistudio-build" } },
-});
+let aiInstance: GoogleGenAI | null = null;
+function getGenAI(): GoogleGenAI | null {
+  if (!aiInstance && process.env.GEMINI_API_KEY) {
+    try {
+      aiInstance = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: { headers: { "User-Agent": "aistudio-build" } },
+      });
+    } catch {
+      aiInstance = null;
+    }
+  }
+  return aiInstance;
+}
+
+function extractResponseText(res: any): string {
+  if (!res) return "";
+  if (typeof res.text === "function") {
+    try {
+      const t = res.text();
+      if (typeof t === "string") return t.trim();
+    } catch {
+      // ignore
+    }
+  }
+  if (typeof res.text === "string") {
+    return res.text.trim();
+  }
+  if (res.candidates?.[0]?.content?.parts?.[0]?.text) {
+    return res.candidates[0].content.parts[0].text.trim();
+  }
+  return "";
+}
 
 export type VoiceAssistantMessage = {
   id: string;
@@ -262,35 +291,40 @@ CRITICAL RULES:
       ? `${VOICE_SYSTEM_INSTRUCTION}\n\n${memoryContext}`
       : VOICE_SYSTEM_INSTRUCTION;
 
-    for (const modelName of candidateModels) {
-      try {
-        const res = await ai.models.generateContent({
-          model: modelName,
-          contents: conversationContents,
-          config: {
-            systemInstruction: effectiveVoiceInstruction,
-          },
-        });
-        if (res.text) {
-          assistantText = res.text.trim();
-          break;
-        }
-      } catch {
+    const genAI = getGenAI();
+    if (genAI) {
+      for (const modelName of candidateModels) {
         try {
-          const res = await ai.models.generateContent({
+          const res = await genAI.models.generateContent({
             model: modelName,
             contents: conversationContents,
             config: {
               systemInstruction: effectiveVoiceInstruction,
-              tools: [{ googleSearch: {} }],
             },
           });
-          if (res.text) {
-            assistantText = res.text.trim();
+          const text = extractResponseText(res);
+          if (text) {
+            assistantText = text;
             break;
           }
         } catch {
-          // try next model
+          try {
+            const res = await genAI.models.generateContent({
+              model: modelName,
+              contents: conversationContents,
+              config: {
+                systemInstruction: effectiveVoiceInstruction,
+                tools: [{ googleSearch: {} }],
+              },
+            });
+            const text = extractResponseText(res);
+            if (text) {
+              assistantText = text;
+              break;
+            }
+          } catch {
+            // try next model
+          }
         }
       }
     }
@@ -508,32 +542,35 @@ Rules:
         "gemini-2.5-flash-lite",
       ];
 
-      for (const m of sttCandidates) {
-        try {
-          const res = await ai.models.generateContent({
-            model: m,
-            contents: [
-              {
-                role: "user",
-                parts: [
-                  {
-                    inlineData: {
-                      data: base64Data,
-                      mimeType,
+      const genAI = getGenAI();
+      if (genAI) {
+        for (const m of sttCandidates) {
+          try {
+            const res = await genAI.models.generateContent({
+              model: m,
+              contents: [
+                {
+                  role: "user",
+                  parts: [
+                    {
+                      inlineData: {
+                        data: base64Data,
+                        mimeType,
+                      },
                     },
-                  },
-                  { text: prompt },
-                ],
-              },
-            ],
-          });
-          const txt = typeof res.text === "function" ? (res.text as any)() : res.text;
-          if (txt && typeof txt === "string" && txt.trim().length > 0) {
-            transcript = txt.trim();
-            break;
+                    { text: prompt },
+                  ],
+                },
+              ],
+            });
+            const txt = extractResponseText(res);
+            if (txt && typeof txt === "string" && txt.trim().length > 0) {
+              transcript = txt.trim();
+              break;
+            }
+          } catch {
+            // try next candidate
           }
-        } catch {
-          // try next candidate
         }
       }
 
