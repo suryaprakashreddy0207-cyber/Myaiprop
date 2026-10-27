@@ -36,6 +36,7 @@ import { CodeExplorer } from "@/components/code-explorer";
 import { ProjectControlCenter } from "@/components/project-control-center";
 import { UpgradeModal } from "@/components/upgrade-modal";
 import { Preview } from "@/components/preview-view";
+import { GitHubSyncModal } from "@/components/github-sync-modal";
 import { getActiveUserSession, getActiveUserStorageKey } from "@/lib/user-session";
 import {
   GmailLogo,
@@ -57,6 +58,7 @@ import {
 } from "@/components/icons/app-logos";
 import { FeatureNavBar } from "@/components/feature-nav-bar";
 import { ToolConnectionModal } from "@/components/tool-connection-modal";
+import { ConnectorsModal, type ConnectorItem } from "@/components/connectors-modal";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/build")({
@@ -367,6 +369,50 @@ function BuildPage() {
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [pendingEditIdea, setPendingEditIdea] = useState<string | null>(null);
   const [isScopingEdit, setIsScopingEdit] = useState(false);
+  const [connectorsModalOpen, setConnectorsModalOpen] = useState(false);
+  const [addedConnectors, setAddedConnectors] = useState<string[]>([]);
+
+  function handleAddConnector(connector: ConnectorItem) {
+    setConnectorsModalOpen(false);
+    setAddedConnectors((prev) => (prev.includes(connector.id) ? prev : [...prev, connector.id]));
+    toast.success(`Selected ${connector.name}`);
+    const promptIdea = `Integrate ${connector.name} into the application`;
+
+    // Map connector questions into BuilderQuestion schema
+    const mappedQuestions: BuilderQuestion[] = connector.questions.map((q) => ({
+      question: q.question,
+      options: q.options || ["Configure now with API key / settings", "Skip for preview with mock fallback"],
+      requiresApiKey: Boolean(q.isSecret || true),
+      apiKeyName: connector.name,
+      apiKeyPlaceholder: q.placeholder,
+      apiKeyHelp: q.help,
+    }));
+
+    setBuildMode("build");
+    setPendingEditIdea(promptIdea);
+    setQuestions(mappedQuestions);
+    setAnswers(new Array(mappedQuestions.length).fill(""));
+    setApiKeyInputs({});
+    setShowKeySecret({});
+    setStep(0);
+
+    // Record turn in chat stream
+    const turnId = `turn-${Date.now()}`;
+    const newTurn: ChatTurn = {
+      id: turnId,
+      prompt: `Connect ${connector.name}`,
+      at: Date.now(),
+      thoughtSeconds: 2,
+      aiSummary: `I'll integrate ${connector.name} into ${built?.name || "your app"}. Please answer the setup question(s) and enter any API credentials below so I can connect it:`,
+      activityLabel: `Configuring ${connector.name} integration`,
+      status: "completed",
+    };
+    setTurns((prev) => [...prev, newTurn]);
+
+    setTimeout(() => {
+      chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 120);
+  }
 
   // Background building & mobile continuity state
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
@@ -439,6 +485,7 @@ function BuildPage() {
   const [expandedThoughts, setExpandedThoughts] = useState<Record<string, boolean>>({});
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [showCodeExplorerModal, setShowCodeExplorerModal] = useState(false);
+  const [githubSyncModalOpen, setGithubSyncModalOpen] = useState(false);
   const [previewMenuOpen, setPreviewMenuOpen] = useState(false);
   const [buildMode, setBuildMode] = useState<"build" | "chat">("build");
   const [buildModeMenuOpen, setBuildModeMenuOpen] = useState(false);
@@ -615,8 +662,15 @@ function BuildPage() {
         }
       }
 
-      // 3. Check active background build in localStorage
-      const activeBuildId = localStorage.getItem(getActiveBuildStorageKey());
+      // 3. Check active background build in localStorage (including cross-session fallback keys)
+      let activeBuildId = localStorage.getItem(getActiveBuildStorageKey());
+      if (!activeBuildId) {
+        activeBuildId = localStorage.getItem("myaibro_active_build_v2");
+      }
+      if (!activeBuildId) {
+        const anyBuildKey = Object.keys(localStorage).find((k) => k.startsWith("myaibro_active_build"));
+        if (anyBuildKey) activeBuildId = localStorage.getItem(anyBuildKey);
+      }
       if (activeBuildId) {
         const matchingJob = loaded.find((h) => h.id === activeBuildId);
         if (matchingJob) {
@@ -633,6 +687,18 @@ function BuildPage() {
         }
         openHistoryProject(projectToOpen);
         goToSlide("preview");
+      }
+
+      // 4. Check if prompt transferred from Blank Place or Chat
+      try {
+        const transferredPrompt = sessionStorage.getItem("myaipro_builder_prompt_transfer");
+        if (transferredPrompt) {
+          setIdea(transferredPrompt);
+          sessionStorage.removeItem("myaipro_builder_prompt_transfer");
+          toast.success("Loaded project prompt into builder!");
+        }
+      } catch {
+        /* ignore */
       }
     } catch {
       setHistory([]);
@@ -656,7 +722,7 @@ function BuildPage() {
     setActiveJobId(buildId);
     setIsBuilding(true);
 
-    pollTimerRef.current = setInterval(async () => {
+    const checkJob = async () => {
       try {
         const res = await getBuildStatusFn({ data: { buildId } });
         const job = res?.job;
@@ -768,7 +834,10 @@ function BuildPage() {
       } catch (err) {
         console.debug("Poll error notice:", err);
       }
-    }, 1200);
+    };
+
+    checkJob();
+    pollTimerRef.current = setInterval(checkJob, 1200);
   }
 
   function persist(items: HistoryItem[]) {
@@ -895,27 +964,148 @@ function BuildPage() {
       setGithubModalOpen(false);
       setMenuOpen(false);
 
+      // Generate rich interactive preview HTML if no standalone index.html exists
+      let previewHtml = "";
+      const htmlFile = res.repo.builtFiles?.find(
+        (f) =>
+          (f.path.toLowerCase().endsWith("index.html") || f.path.toLowerCase().endsWith(".html")) &&
+          (f.content.includes("<body") || f.content.includes("<div")),
+      );
+      if (htmlFile) {
+        previewHtml = htmlFile.content;
+      } else {
+        const repoFilesList =
+          res.repo.builtFiles && res.repo.builtFiles.length > 0
+            ? res.repo.builtFiles
+            : res.repo.files.map((f) => ({
+                path: f.path,
+                language: f.type,
+                content: `// Source file: ${f.path}\n// Repository: ${res.repo!.owner}/${res.repo!.repo}\n// Size: ${f.size} bytes`,
+              }));
+
+        const cleanReadme = (res.repo.readme || `# ${res.repo.repo}\n\n${res.repo.description || ""}`)
+          .replace(/"/g, "&quot;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+
+        previewHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>${res.repo.repo}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen antialiased p-6">
+  <div class="max-w-5xl mx-auto space-y-6">
+    <header class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-5">
+      <div class="flex items-center gap-3">
+        <div class="size-11 rounded-2xl bg-indigo-600 flex items-center justify-center font-bold text-white text-lg shadow-lg">
+          ★
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-2xl font-bold text-white">${res.repo.owner}/${res.repo.repo}</h1>
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold ${res.repo.isPrivate ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "bg-blue-500/20 text-blue-300 border border-blue-500/30"}">
+              ${res.repo.isPrivate ? "Private" : "Public"}
+            </span>
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">${res.repo.description || "Imported GitHub Repository"}</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="${res.repo.url}" target="_blank" rel="noreferrer" class="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold text-white hover:bg-slate-800 transition flex items-center gap-1.5">
+          <span>View on GitHub</span> ↗
+        </a>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+        <div class="text-xs text-slate-400 uppercase font-semibold">Default Branch</div>
+        <div class="text-xl font-bold text-white mt-1">${res.repo.defaultBranch || "main"}</div>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+        <div class="text-xs text-slate-400 uppercase font-semibold">Language / Stack</div>
+        <div class="text-xl font-bold text-indigo-400 mt-1">${res.repo.language || "JavaScript / TypeScript"}</div>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+        <div class="text-xs text-slate-400 uppercase font-semibold">Imported Code Files</div>
+        <div class="text-xl font-bold text-emerald-400 mt-1">${repoFilesList.length} Files</div>
+      </div>
+    </div>
+
+    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-3">
+      <h2 class="text-sm font-bold text-white uppercase tracking-wider">Repository Documentation (README)</h2>
+      <pre class="bg-slate-950 p-4 rounded-xl border border-slate-800/80 text-xs text-slate-300 font-mono overflow-x-auto whitespace-pre-wrap">${cleanReadme}</pre>
+    </div>
+  </div>
+</body>
+</html>`;
+      }
+
+      const filesToUse: BuiltFile[] =
+        res.repo.builtFiles && res.repo.builtFiles.length > 0
+          ? res.repo.builtFiles
+          : [
+              {
+                path: "README.md",
+                language: "markdown",
+                content: res.repo.readme || `# ${res.repo.repo}\n\n${res.repo.description || ""}`,
+              },
+            ];
+
       // If an app is already open in the workspace, merge the imported repo files into the current app so edits happen in-place
       if (built && res.repo.builtFiles && res.repo.builtFiles.length > 0) {
         const existingMap = new Map<string, BuiltFile>();
         for (const f of built.files) existingMap.set(f.path, f);
         for (const f of res.repo.builtFiles) existingMap.set(f.path, f);
         const mergedFiles = Array.from(existingMap.values());
-        setBuilt({
+        const updatedBuilt: Built = {
           ...built,
           files: mergedFiles,
-        });
+          preview_html: previewHtml || built.preview_html,
+        };
+        setBuilt(updatedBuilt);
+        goToSlide("preview");
         toast.success(
           `Imported ${res.repo.isPrivate ? "private" : "public"} repo ${res.repo.owner}/${res.repo.repo} into "${built.name}"!`,
         );
       } else {
-        setIdea((prev) =>
-          prev
-            ? `${prev} (Edit in GitHub repo: ${res.repo!.owner}/${res.repo!.repo})`
-            : `Edit and integrate into ${res.repo!.owner}/${res.repo!.repo}: ${res.repo!.description}`,
-        );
+        const newBuilt: Built = {
+          name: res.repo.repo,
+          description: res.repo.description || `Imported GitHub repository ${res.repo.owner}/${res.repo.repo}`,
+          preview_html: previewHtml,
+          files: filesToUse,
+        };
+        setBuilt(newBuilt);
+        const newHistoryItem: HistoryItem = {
+          ...newBuilt,
+          id: `gh-${Date.now()}`,
+          idea: `GitHub: ${res.repo.owner}/${res.repo.repo}`,
+          at: Date.now(),
+          status: "completed",
+          totalFiles: filesToUse.length,
+          completedFiles: filesToUse.length,
+          stack: res.repo.language || "GitHub Project",
+          turns: [
+            {
+              id: `turn-gh-${Date.now()}`,
+              prompt: `Imported GitHub repository: ${res.repo.owner}/${res.repo.repo}`,
+              at: Date.now(),
+              thoughtSeconds: 2,
+              aiSummary: `Imported ${res.repo.isPrivate ? "private" : "public"} repository ${res.repo.owner}/${res.repo.repo} with ${filesToUse.length} source code files. Code Explorer and live preview are ready for inspection and editing.`,
+              activityLabel: `Loaded GitHub repo ${res.repo.owner}/${res.repo.repo}`,
+              status: "completed",
+            },
+          ],
+        };
+        setTurns(newHistoryItem.turns || []);
+        setHistory((prev) => [newHistoryItem, ...prev.filter((h) => h.name !== newBuilt.name)]);
+        saveUserBuilds([newHistoryItem, ...history.filter((h) => h.name !== newBuilt.name)]);
+        goToSlide("preview");
         toast.success(
-          `Imported ${res.repo.isPrivate ? "Private" : "Public"} repository ${res.repo.owner}/${res.repo.repo} (${res.repo.files.length} files)!`,
+          `Imported repository ${res.repo.owner}/${res.repo.repo} (${filesToUse.length} files loaded)!`,
         );
       }
     } catch (e: any) {
@@ -1249,6 +1439,41 @@ function BuildPage() {
       setTurns((prev) => [...prev, newTurn]);
       setAttachedImages([]);
       setFolderName(null);
+      return;
+    }
+
+    // If user prompt mentions "replace admin", "admin", or "credentials", trigger interactive questions
+    const isAdminTrigger = /replace\s*admins?|update\s*admins?|change\s*admins?|new\s*admin|set\s*admin/i.test(cleanText);
+    if (isAdminTrigger) {
+      setPendingEditIdea(cleanText);
+      const adminQuestions: BuilderQuestion[] = [
+        {
+          question: "Enter the administrator email address (or username) to replace/assign admin privileges:",
+          options: ["admin@company.com", "superadmin@domain.com", "Use current user session"],
+          requiresApiKey: false,
+          apiKeyName: "Administrator Email",
+          apiKeyPlaceholder: "admin@example.com",
+          apiKeyHelp: "This user will have root administrative access and role-based permissions.",
+        },
+        {
+          question: "Select administrative access privileges & role scope:",
+          options: [
+            "Super Admin (Full System, Database & Billing Access)",
+            "Content & Moderation Admin",
+            "Operations & Read-Only Admin",
+          ],
+          requiresApiKey: false,
+          apiKeyName: "Admin Role",
+          apiKeyPlaceholder: "Super Admin",
+          apiKeyHelp: "Determines permission tier across dashboard, analytics and user controls.",
+        },
+      ];
+      setQuestions(adminQuestions);
+      setAnswers(new Array(adminQuestions.length).fill(""));
+      setStep(0);
+      setTimeout(() => {
+        chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
       return;
     }
 
@@ -1654,15 +1879,15 @@ function BuildPage() {
           })}
         </div>
 
-        {/* Primary Action Tiles: Upload Images, Folder, GitHub */}
-        <div className="grid grid-cols-3 gap-2 pt-1">
+        {/* Primary Action Tiles: Upload Images, Folder, GitHub, Connectors */}
+        <div className="grid grid-cols-4 gap-2 pt-1">
           <button
             type="button"
             onClick={() => {
               setMenuOpen(false);
               imagesInputRef.current?.click();
             }}
-            className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-center hover:bg-zinc-100 transition group"
+            className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-2.5 text-center hover:bg-zinc-100 transition group cursor-pointer"
           >
             <div className="flex size-9 items-center justify-center rounded-xl bg-zinc-900 text-white shadow-xs group-hover:scale-105 transition">
               <ImageIcon className="size-4" />
@@ -1676,7 +1901,7 @@ function BuildPage() {
               setMenuOpen(false);
               handleShareFolder();
             }}
-            className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-center hover:bg-zinc-100 transition group"
+            className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-2.5 text-center hover:bg-zinc-100 transition group cursor-pointer"
           >
             <div className="flex size-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-xs group-hover:scale-105 transition">
               <Folder className="size-4" />
@@ -1690,12 +1915,26 @@ function BuildPage() {
               setMenuOpen(false);
               setGithubModalOpen(true);
             }}
-            className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-center hover:bg-zinc-100 transition group"
+            className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-2.5 text-center hover:bg-zinc-100 transition group cursor-pointer"
           >
             <div className="flex size-9 items-center justify-center rounded-xl bg-zinc-800 text-white shadow-xs group-hover:scale-105 transition">
               <Github className="size-4" />
             </div>
             <span className="text-[11px] font-semibold text-zinc-900 leading-tight">GitHub</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              setConnectorsModalOpen(true);
+            }}
+            className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-2.5 text-center hover:bg-zinc-100 transition group cursor-pointer"
+          >
+            <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 text-white shadow-xs group-hover:scale-105 transition">
+              <Plug className="size-4" />
+            </div>
+            <span className="text-[11px] font-semibold text-zinc-900 leading-tight">Connect</span>
           </button>
         </div>
 
@@ -2216,6 +2455,10 @@ function BuildPage() {
             onUpdateFiles={(newFiles) => {
               setBuilt((prev) => (prev ? { ...prev, files: newFiles } : prev));
             }}
+            onExportGitHub={() => {
+              setShowCodeExplorerModal(false);
+              setGithubSyncModalOpen(true);
+            }}
           />
         </div>
       </div>
@@ -2358,6 +2601,17 @@ function BuildPage() {
                     <Download className="size-4 text-cyan-400" />
                     <span>Download the app</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewMenuOpen(false);
+                      setGithubSyncModalOpen(true);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-white hover:bg-blue-600/20 transition text-left cursor-pointer"
+                  >
+                    <Github className="size-4 text-white" />
+                    <span>Export to GitHub</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -2373,15 +2627,27 @@ function BuildPage() {
             <ChevronDown className="size-3.5 text-blue-400" />
           </button>
 
-          {/* Right: Next / Forward button */}
-          <button
-            type="button"
-            onClick={() => goToSlide(slideIndex === 0 ? "preview" : "chat")}
-            className="flex size-8 items-center justify-center rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-200 hover:text-white hover:bg-blue-500/20 transition cursor-pointer"
-            title="Next slide"
-          >
-            <ChevronRight className="size-4" />
-          </button>
+          {/* Right: GitHub Export & Next / Forward button */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setGithubSyncModalOpen(true)}
+              className="flex items-center gap-1.5 rounded-full bg-zinc-900 border border-zinc-700 hover:border-zinc-500 px-3 py-1.5 text-xs font-semibold text-white transition shadow-sm cursor-pointer"
+              title="Export project to GitHub repository"
+            >
+              <Github className="size-3.5 text-white" />
+              <span className="hidden sm:inline">Export to GitHub</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => goToSlide(slideIndex === 0 ? "preview" : "chat")}
+              className="flex size-8 items-center justify-center rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-200 hover:text-white hover:bg-blue-500/20 transition cursor-pointer"
+              title="Next slide"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+          </div>
         </header>
 
         {/* History Modal / Drawer inside Built Workspace */}
@@ -2724,85 +2990,112 @@ function BuildPage() {
                       </button>
                     </div>
 
-                    <p className="text-[16px] font-medium text-white leading-snug">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-cyan-300 font-bold text-xs">
+                        Question {step + 1} of {questions.length}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const targetIdea = pendingEditIdea || upgrade || idea;
+                          setQuestions(null);
+                          if (targetIdea) {
+                            triggerBuild(targetIdea, [], targetIdea, true);
+                          }
+                        }}
+                        className="text-[11px] text-blue-300/60 hover:text-white underline cursor-pointer"
+                      >
+                        Skip questions & build directly
+                      </button>
+                    </div>
+
+                    <p className="text-[16px] font-semibold text-white leading-snug">
                       {questions[step]?.question}
                     </p>
 
-                    {Boolean(
-                      questions[step]?.requiresApiKey ||
-                      /database|db|project\s*id|api\s*id|api\s*key|credential|token|secret/i.test(questions[step]?.question || "")
-                    ) && (
-                      <div className="rounded-2xl border border-blue-500/30 bg-[#081226] p-4 space-y-3">
-                        <div className="flex items-center gap-2">
-                          <Key className="size-4 text-blue-400" />
-                          <span className="text-xs font-semibold text-white">
-                            {questions[step]?.apiKeyName || "Database API ID / Project Key"}
-                          </span>
-                        </div>
+                    {/* Dedicated prompt input place down for entering the API key or response */}
+                    <div className="rounded-2xl border border-blue-500/30 bg-[#081226] p-4 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold text-white flex items-center gap-1.5">
+                          <Key className="size-3.5 text-blue-400" />
+                          <span>{questions[step]?.apiKeyName || "Enter API Key / Response:"}</span>
+                        </label>
+                        {questions[step]?.requiresApiKey && (
+                          <span className="text-[10px] text-blue-300/60 font-mono">Secret Key</span>
+                        )}
+                      </div>
+                      
+                      {questions[step]?.apiKeyHelp && (
                         <p className="text-[11px] text-blue-200/70">
-                          {questions[step]?.apiKeyHelp || "Enter your Database API ID or Key to connect live storage, or choose an option below to skip."}
+                          {questions[step]?.apiKeyHelp}
                         </p>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={apiKeyInputs[step] || ""}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setApiKeyInputs((prev) => ({ ...prev, [step]: val }));
-                            }}
-                            placeholder={questions[step]?.apiKeyPlaceholder || "Enter Database API ID / Key..."}
-                            className="flex-1 rounded-xl border border-blue-500/30 bg-[#0c1938] px-3.5 py-2 text-xs font-mono text-white placeholder:text-blue-300/40 outline-none focus:border-blue-400"
-                          />
-                          {apiKeyInputs[step]?.trim() && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const val = apiKeyInputs[step].trim();
-                                const keyTitle = questions[step]?.apiKeyName || "Database API ID / Project Key";
-                                setApiKeys((prev) => ({ ...prev, [keyTitle]: val }));
-                                setAnswers((prev) => prev.map((v, i) => (i === step ? `Configured ${keyTitle}: ${val.slice(0, 4)}...` : v)));
-                                toast.success("Database API ID saved for application integration!");
-                              }}
-                              className="rounded-xl bg-blue-600 hover:bg-blue-500 px-3 py-2 text-xs font-semibold text-white transition shrink-0"
-                            >
-                              Save Key
-                            </button>
-                          )}
+                      )}
+
+                      <div className="flex items-center gap-2">
+                        <input
+                          type={questions[step]?.requiresApiKey && !showKeySecret[step] ? "password" : "text"}
+                          value={apiKeyInputs[step] || answers[step] || ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setApiKeyInputs((prev) => ({ ...prev, [step]: val }));
+                            setAnswers((prev) => prev.map((v, i) => (i === step ? val : v)));
+                          }}
+                          placeholder={questions[step]?.apiKeyPlaceholder || "Enter API key or response..."}
+                          className="flex-1 rounded-xl border border-blue-500/30 bg-[#0c1938] px-3.5 py-2.5 text-xs text-white placeholder:text-blue-300/40 outline-none focus:border-blue-400 font-mono"
+                        />
+                        {questions[step]?.requiresApiKey && (
+                          <button
+                            type="button"
+                            onClick={() => setShowKeySecret((prev) => ({ ...prev, [step]: !prev[step] }))}
+                            className="p-2 text-blue-300 hover:text-white"
+                          >
+                            {showKeySecret[step] ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Preset Options (if available) */}
+                    {(questions[step]?.options ?? []).length > 0 && (
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] font-semibold text-blue-300/60 uppercase tracking-wider block">
+                          Or select an option:
+                        </span>
+                        <div className="space-y-1.5">
+                          {(questions[step]?.options ?? []).map((opt) => {
+                            const selected = answers[step] === opt || apiKeyInputs[step] === opt;
+                            return (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => {
+                                  setAnswers((prev) => prev.map((v, i) => (i === step ? opt : v)));
+                                  setApiKeyInputs((prev) => ({ ...prev, [step]: opt }));
+                                }}
+                                className={cn(
+                                  "flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-2.5 text-left text-xs font-medium ring-1 transition cursor-pointer",
+                                  selected
+                                    ? "bg-blue-600 text-white ring-blue-400"
+                                    : "bg-[#081226] text-white ring-blue-500/25 hover:bg-blue-600/20",
+                                )}
+                              >
+                                <span className="text-white font-medium">{opt}</span>
+                                {selected && <Check className="size-4 shrink-0 text-emerald-400" />}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
 
-                    <div className="space-y-2">
-                      {(questions[step]?.options ?? []).map((opt) => {
-                        const selected = answers[step] === opt;
-                        return (
-                          <button
-                            key={opt}
-                            type="button"
-                            onClick={() =>
-                              setAnswers((prev) => prev.map((v, i) => (i === step ? opt : v)))
-                            }
-                            className={cn(
-                              "flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-xs font-medium ring-1 transition cursor-pointer",
-                              selected
-                                ? "bg-blue-600 text-white ring-blue-400"
-                                : "bg-[#081226] text-white ring-blue-500/25 hover:bg-blue-600/20",
-                            )}
-                          >
-                            <span className="text-white font-medium">{opt}</span>
-                            {selected && <Check className="size-4 shrink-0 text-emerald-400" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-
+                    {/* Down Navigation: Next vs Submit */}
                     <div className="flex items-center justify-between gap-2 pt-2 border-t border-blue-500/20">
                       <div className="flex items-center gap-2">
                         {step > 0 && (
                           <button
                             type="button"
                             onClick={() => setStep((s) => s - 1)}
-                            className="rounded-full px-3.5 py-2 text-xs font-medium text-blue-300 hover:text-white"
+                            className="rounded-full px-3.5 py-2 text-xs font-medium text-blue-300 hover:text-white cursor-pointer"
                           >
                             Previous
                           </button>
@@ -2813,34 +3106,60 @@ function BuildPage() {
                             setQuestions(null);
                             setPendingEditIdea(null);
                           }}
-                          className="rounded-full px-3 py-2 text-xs text-blue-300/70 hover:text-white"
+                          className="rounded-full px-3 py-2 text-xs text-blue-300/70 hover:text-white cursor-pointer"
                         >
                           Cancel
                         </button>
                       </div>
 
-                      <button
-                        type="button"
-                        disabled={!answers[step] || isBuilding}
-                        onClick={() => {
-                          const isLast = step === questions.length - 1;
-                          if (isLast) {
-                            const targetIdea = pendingEditIdea || upgrade || idea;
+                      {step < questions.length - 1 ? (
+                        <button
+                          type="button"
+                          disabled={isBuilding}
+                          onClick={() => {
+                            setStep((s) => s + 1);
+                          }}
+                          className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-2 text-xs font-bold text-white hover:brightness-110 shadow-md shadow-blue-500/25 transition cursor-pointer"
+                        >
+                          <span>Next</span>
+                          <ChevronRight className="size-3.5" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={isBuilding}
+                          onClick={() => {
+                            const targetIdea = pendingEditIdea || upgrade || idea || "Integrate requested service";
                             const answeredList = questions.map((qItem, i) => ({
                               question: qItem.question,
-                              answer: answers[i] || qItem.options[0] || "",
+                              answer: apiKeyInputs[i] || answers[i] || qItem.options?.[0] || "",
                             }));
+
+                            // Save user entered API keys into tool key storage so they are automatically injected into code
+                            const nextToolKeys = { ...userToolKeys };
+                            questions.forEach((qItem, i) => {
+                              const val = (apiKeyInputs[i] || answers[i] || "").trim();
+                              if (val && qItem.apiKeyName) {
+                                nextToolKeys[qItem.apiKeyName] = val;
+                              }
+                            });
+                            setUserToolKeys(nextToolKeys);
+                            try {
+                              localStorage.setItem("myai_user_tool_keys", JSON.stringify(nextToolKeys));
+                            } catch {
+                              /* ignore */
+                            }
+
+                            setQuestions(null);
+                            toast.success("Submitting integration and updating application code…");
                             triggerBuild(targetIdea, answeredList, targetIdea, true);
-                          } else {
-                            setStep((s) => s + 1);
-                          }
-                        }}
-                        className="flex items-center gap-1.5 rounded-full bg-zinc-900 px-5 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:bg-zinc-800 transition"
-                      >
-                        {step === questions.length - 1
-                          ? `Integrate & Edit in ${built.name}`
-                          : "Next Question"}
-                      </button>
+                          }}
+                          className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-600 to-emerald-600 px-6 py-2 text-xs font-bold text-white hover:brightness-110 shadow-lg shadow-blue-500/30 transition cursor-pointer"
+                        >
+                          <span>Submit</span>
+                          <Check className="size-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -2920,16 +3239,28 @@ function BuildPage() {
                   />
 
                   <div className="mt-1 flex items-center justify-between">
-                    {/* Left: Plus (+) Button for Uploading Images & Folder */}
-                    <button
-                      type="button"
-                      onClick={() => setMenuOpen((v) => !v)}
-                      aria-label="Upload images or folder"
-                      title="Upload images, folder, or connect tools"
-                      className="flex size-8 items-center justify-center rounded-full border border-blue-400/30 bg-blue-500/15 text-blue-200 hover:text-white hover:bg-blue-500/25 active:scale-95 transition cursor-pointer"
-                    >
-                      <Plus className="size-4 stroke-[1.75]" />
-                    </button>
+                    {/* Left: Plus (+) and Connectors Button */}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setMenuOpen((v) => !v)}
+                        aria-label="Upload images or folder"
+                        title="Upload images, folder, or connect tools"
+                        className="flex size-8 items-center justify-center rounded-full border border-blue-400/30 bg-blue-500/15 text-blue-200 hover:text-white hover:bg-blue-500/25 active:scale-95 transition cursor-pointer"
+                      >
+                        <Plus className="size-4 stroke-[1.75]" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setConnectorsModalOpen(true)}
+                        aria-label="Connectors"
+                        title="Connectors — connect apps, payments & AI"
+                        className="flex size-8 items-center justify-center rounded-full border border-blue-400/30 bg-blue-500/15 text-cyan-300 hover:text-white hover:bg-blue-500/25 active:scale-95 transition cursor-pointer"
+                      >
+                        <Plug className="size-4 stroke-[1.75]" />
+                      </button>
+                    </div>
 
                     {/* Right: [ Stop / Send ] */}
                     <div className="flex items-center gap-1.5">
@@ -2999,6 +3330,14 @@ function BuildPage() {
         {githubModalOverlay}
         {toolApiKeyModalOverlay}
         {codeExplorerModal}
+
+        {/* Connectors Modal for Chat View */}
+        <ConnectorsModal
+          open={connectorsModalOpen}
+          onClose={() => setConnectorsModalOpen(false)}
+          onAddConnector={handleAddConnector}
+          addedConnectorIds={addedConnectors}
+        />
 
         {/* Publish & Share Hub Modal with Prominent Add Custom Domain Option */}
         {publishOpen && (
@@ -3195,6 +3534,17 @@ function BuildPage() {
             </div>
           </>
         )}
+
+        <GitHubSyncModal
+          isOpen={githubSyncModalOpen}
+          onClose={() => setGithubSyncModalOpen(false)}
+          projectName={built.name}
+          projectDescription={built.description}
+          files={userProjectFiles}
+          onExportSuccess={(url) => {
+            toast.success(`Exported to GitHub: ${url}`);
+          }}
+        />
       </div>
     );
   }
@@ -3516,65 +3866,6 @@ function BuildPage() {
         ) : (
           /* ==================== SCREENSHOT 1 LANDING UI ==================== */
           <div className="my-auto flex flex-col items-center justify-center text-center max-w-2xl mx-auto py-6 space-y-6">
-            {/* Top Connected Tools Pill with Official Logos */}
-            <div className="inline-flex items-center gap-3 rounded-full border border-blue-500/30 bg-[#09142b]/90 px-4 py-2 shadow-[0_0_30px_rgba(37,99,235,0.3)] backdrop-blur-xl">
-              <div className="flex items-center -space-x-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedToolForApiKey("Gmail");
-                    setToolApiKeyValue(userToolKeys["Gmail"] || "");
-                  }}
-                  className="flex size-7 items-center justify-center rounded-full bg-white border border-blue-400/40 p-1 shadow-xs hover:scale-110 transition cursor-pointer"
-                  title="Configure Gmail"
-                >
-                  <GmailLogo className="size-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedToolForApiKey("Google Maps Platform");
-                    setToolApiKeyValue(userToolKeys["Google Maps Platform"] || userToolKeys["Google Maps"] || "");
-                  }}
-                  className="flex size-7 items-center justify-center rounded-full bg-white border border-blue-400/40 p-1 shadow-xs hover:scale-110 transition cursor-pointer"
-                  title="Configure Google Maps"
-                >
-                  <GoogleMapsLogo className="size-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedToolForApiKey("Stripe");
-                    setToolApiKeyValue(userToolKeys["Stripe"] || "");
-                  }}
-                  className="flex size-7 items-center justify-center rounded-full bg-white border border-blue-400/40 p-1 shadow-xs hover:scale-110 transition cursor-pointer"
-                  title="Configure Stripe"
-                >
-                  <StripeLogo className="size-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedToolForApiKey("GitHub");
-                    setToolApiKeyValue(userToolKeys["GitHub"] || "");
-                  }}
-                  className="flex size-7 items-center justify-center rounded-full bg-zinc-900 border border-blue-400/40 p-1 shadow-xs hover:scale-110 transition cursor-pointer"
-                  title="Configure GitHub"
-                >
-                  <GitHubLogo className="size-4 text-white" />
-                </button>
-              </div>
-              <div className="h-3.5 w-px bg-blue-400/30" />
-              <button
-                type="button"
-                onClick={() => setMenuOpen(true)}
-                className="flex items-center gap-1.5 text-xs font-semibold text-blue-100 hover:text-white transition cursor-pointer"
-              >
-                <span>Connect all your tools</span>
-                <span className="text-pink-400">→</span>
-              </button>
-            </div>
-
             {/* Hero Heading: What should we build, Lucky? */}
             <h1 className="font-serif text-4xl sm:text-6xl md:text-7xl font-normal tracking-tight text-white text-center leading-[1.1]">
               What should we build, <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-pink-500 bg-clip-text text-transparent font-bold">Lucky?</span>
@@ -3603,14 +3894,16 @@ function BuildPage() {
 
                 <div className="flex items-center justify-between pt-2 border-t border-blue-500/20">
                   {/* Left Plus Button */}
-                  <button
-                    type="button"
-                    onClick={() => setMenuOpen(true)}
-                    className="flex size-10 items-center justify-center rounded-full bg-blue-500/15 hover:bg-blue-500/25 border border-blue-400/30 text-white transition cursor-pointer shadow-md"
-                    title="Attach images, folder or connect tools"
-                  >
-                    <Plus className="size-5 text-blue-200" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setMenuOpen(true)}
+                      className="flex size-10 items-center justify-center rounded-full bg-blue-500/15 hover:bg-blue-500/25 border border-blue-400/30 text-white transition cursor-pointer shadow-md"
+                      title="Attach images or project folder"
+                    >
+                      <Plus className="size-5 text-blue-200" />
+                    </button>
+                  </div>
 
                   <div className="flex items-center gap-2">
                     <button
@@ -3663,6 +3956,17 @@ function BuildPage() {
         )}
       </div>
 
+      <GitHubSyncModal
+        isOpen={githubSyncModalOpen}
+        onClose={() => setGithubSyncModalOpen(false)}
+        projectName={idea ? idea.split(" ")[0] : "my-web-app"}
+        projectDescription={idea}
+        files={[]}
+        onExportSuccess={(url) => {
+          toast.success(`Exported to GitHub: ${url}`);
+        }}
+      />
+
       <UpgradeModal
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
@@ -3671,6 +3975,13 @@ function BuildPage() {
           setCredits(getUserCredits());
           setShowUpgradeModal(false);
         }}
+      />
+
+      <ConnectorsModal
+        isOpen={connectorsModalOpen}
+        onClose={() => setConnectorsModalOpen(false)}
+        addedConnectorIds={addedConnectors}
+        onAddConnector={handleAddConnector}
       />
     </div>
   );

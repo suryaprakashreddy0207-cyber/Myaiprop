@@ -82,12 +82,18 @@ function NewProjectPage() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] w-full flex-col bg-black text-white font-sans">
-      {/* Top Header matching screenshot 4 */}
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between px-4 bg-black/95 backdrop-blur-md">
+    <div className="relative flex min-h-[100dvh] w-full flex-col bg-[#070e20] text-blue-100 font-sans overflow-x-hidden">
+      {/* Ambient Lighting Glow matching AI Chat */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden z-0">
+        <div className="absolute top-0 left-1/3 size-[420px] rounded-full bg-blue-600/10 blur-[140px]" />
+        <div className="absolute bottom-10 right-10 size-[360px] rounded-full bg-indigo-600/10 blur-[140px]" />
+      </div>
+
+      {/* Top Header */}
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between px-4 bg-[#081226]/90 backdrop-blur-md border-b border-blue-500/20">
         <button
           onClick={() => navigate({ to: "/projects" })}
-          className="flex size-10 items-center justify-center rounded-full bg-neutral-900 text-white hover:bg-neutral-800 transition active:scale-95"
+          className="flex size-10 items-center justify-center rounded-full bg-blue-600/20 border border-blue-500/30 text-blue-200 hover:text-white hover:bg-blue-600/30 transition active:scale-95 cursor-pointer"
           aria-label="Back"
         >
           <ArrowLeft className="size-5" />
@@ -97,10 +103,10 @@ function NewProjectPage() {
 
         <button
           onClick={() => setShowSettings(!showSettings)}
-          className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
+          className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition cursor-pointer ${
             showSettings
-              ? "bg-white text-black"
-              : "bg-neutral-900 text-neutral-300 hover:text-white hover:bg-neutral-800"
+              ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm"
+              : "bg-blue-600/20 border border-blue-500/30 text-blue-200 hover:text-white hover:bg-blue-600/30"
           }`}
         >
           <SettingsIcon className="size-3.5" />
@@ -109,46 +115,46 @@ function NewProjectPage() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col justify-between px-4 py-6 max-w-xl mx-auto w-full">
+      <main className="relative z-10 flex-1 flex flex-col justify-between px-4 py-6 max-w-xl mx-auto w-full">
         <form onSubmit={handleCreate} className="space-y-4">
-          {/* Main Title Input Card matching Screenshot 4 */}
-          <div className="flex items-center gap-3 rounded-2xl bg-[#1c1c1e] px-4 py-3.5 border border-neutral-800 focus-within:border-neutral-600 transition">
-            <Folder className="size-5 text-neutral-400 shrink-0" />
+          {/* Main Title Input Card */}
+          <div className="flex items-center gap-3 rounded-2xl bg-[#0c1938] px-4 py-3.5 border border-blue-500/30 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 transition shadow-md">
+            <Folder className="size-5 text-blue-400 shrink-0" />
             <input
               type="text"
               autoFocus
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="E.g. Party planning"
-              className="w-full bg-transparent text-sm text-white placeholder:text-neutral-500 outline-none"
+              placeholder="E.g. Party planning, E-commerce app, Machine Learning…"
+              className="w-full bg-transparent text-sm text-white placeholder:text-blue-300/40 outline-none"
             />
           </div>
 
-          {/* Quick Suggestion Chips matching Screenshot 4 */}
+          {/* Quick Suggestion Chips */}
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-1">
             {SUGGESTIONS.map((s) => (
               <button
                 key={s.label}
                 type="button"
                 onClick={() => applySuggestion(s)}
-                className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition active:scale-95 ${s.color}`}
+                className="flex shrink-0 items-center gap-1.5 rounded-full border border-blue-500/30 bg-[#0c1938] hover:border-blue-400 px-3.5 py-1.5 text-xs font-medium text-blue-200 hover:text-white transition active:scale-95 cursor-pointer shadow-xs"
               >
-                <s.icon className="size-3.5" />
+                <s.icon className="size-3.5 text-cyan-400" />
                 <span>{s.label}</span>
               </button>
             ))}
           </div>
 
-          {/* Context Explainer text matching Screenshot 4 */}
-          <p className="text-xs text-neutral-400 leading-relaxed pt-2 px-1">
+          {/* Context Explainer text */}
+          <p className="text-xs text-blue-200/80 leading-relaxed pt-2 px-1">
             Projects give My AI shared context across chats and files, all in one place.
           </p>
 
           {/* Optional Project Settings Panel */}
           {showSettings && (
-            <div className="rounded-2xl bg-[#1c1c1e] p-4 border border-neutral-800 space-y-3 animate-in fade-in duration-150">
+            <div className="rounded-2xl bg-[#0c1938] p-4 border border-blue-500/30 space-y-3 animate-in fade-in duration-150 shadow-xl">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
-                <Sparkles className="size-3.5 text-brand" />
+                <Sparkles className="size-3.5 text-cyan-400" />
                 <span>Custom Instructions for My AI</span>
               </div>
               <textarea
@@ -156,22 +162,22 @@ function NewProjectPage() {
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
                 placeholder="How should My AI behave or respond in this project? (E.g. concise bullet points, specific programming stack, tone...)"
-                className="w-full rounded-xl bg-black/50 border border-neutral-800 p-2.5 text-xs text-white placeholder:text-neutral-500 focus:outline-none focus:border-neutral-600"
+                className="w-full rounded-xl bg-[#070e20] border border-blue-500/30 p-2.5 text-xs text-white placeholder:text-blue-300/40 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
               />
             </div>
           )}
         </form>
 
-        {/* Bottom Create Button matching Screenshot 4 */}
+        {/* Bottom Create Button */}
         <div className="pt-8 pb-4">
           <button
             type="button"
             onClick={handleCreate}
             disabled={!title.trim() || isCreating}
-            className={`flex w-full items-center justify-center gap-2 rounded-full py-3.5 px-6 text-sm font-semibold transition shadow-lg active:scale-95 ${
+            className={`flex w-full items-center justify-center gap-2 rounded-full py-3.5 px-6 text-sm font-semibold transition shadow-lg active:scale-95 cursor-pointer ${
               title.trim()
-                ? "bg-white text-black hover:bg-neutral-200"
-                : "bg-[#2c2c2e] text-neutral-500 cursor-not-allowed"
+                ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-500/30"
+                : "bg-blue-950/40 border border-blue-500/20 text-blue-300/40 cursor-not-allowed"
             }`}
           >
             {isCreating ? (

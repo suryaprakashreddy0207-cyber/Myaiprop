@@ -618,6 +618,27 @@ function CodeBlock({
 
           <button
             type="button"
+            onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent("myaipro_open_blank_workspace", {
+                  detail: {
+                    title: filename || `${lang.toUpperCase()} Script`,
+                    content: text,
+                    language: lang,
+                    mode: "script",
+                  },
+                }),
+              );
+            }}
+            className="flex items-center gap-1 rounded-md bg-blue-600/20 border border-blue-400/30 px-2 py-1 text-[11px] font-sans font-medium text-blue-200 hover:text-white hover:bg-blue-600/30 transition cursor-pointer"
+            title="Open in Blank Workspace"
+          >
+            <FileText className="size-3" />
+            <span>Blank Place</span>
+          </button>
+
+          <button
+            type="button"
             onClick={async () => {
               await navigator.clipboard.writeText(text);
               setCopied(true);

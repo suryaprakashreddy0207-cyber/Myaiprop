@@ -262,32 +262,32 @@ export function AddSourceModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative flex h-[90vh] max-h-[640px] w-full max-w-xl flex-col rounded-3xl bg-[#141415] border border-neutral-800 text-white shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="relative flex h-[90vh] max-h-[640px] w-full max-w-xl flex-col rounded-3xl bg-[#0c1938] border border-blue-500/30 text-white shadow-2xl shadow-blue-950 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-neutral-800/80 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-blue-500/20 px-6 py-4 bg-[#081226]/90">
           <div>
             <h3 className="font-semibold text-base text-white">Add Sources to Project</h3>
-            <p className="text-xs text-neutral-400">
+            <p className="text-xs text-blue-200/80">
               Connect Google Drive, Sheets, Gmail or upload local documents
             </p>
           </div>
           <button
             onClick={onClose}
-            className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-white transition"
+            className="rounded-full p-1.5 text-blue-300 hover:bg-blue-600/20 hover:text-white transition cursor-pointer"
           >
             <X className="size-5" />
           </button>
         </div>
 
         {/* Integration Source Tabs */}
-        <div className="grid grid-cols-4 border-b border-neutral-800/80 bg-neutral-900/60 p-2 gap-1.5">
+        <div className="grid grid-cols-4 border-b border-blue-500/20 bg-[#070e20] p-2 gap-1.5">
           <button
             onClick={() => handleTabChange("drive")}
-            className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl py-2.5 px-2 text-xs font-medium transition ${
+            className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl py-2.5 px-2 text-xs font-medium transition cursor-pointer ${
               activeTab === "drive"
-                ? "bg-neutral-800 text-white shadow-sm ring-1 ring-neutral-700"
-                : "text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200"
+                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25"
+                : "text-blue-300/70 hover:bg-blue-600/15 hover:text-white"
             }`}
           >
             <GoogleDriveLogo className="size-5" />
@@ -296,10 +296,10 @@ export function AddSourceModal({
 
           <button
             onClick={() => handleTabChange("sheets")}
-            className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl py-2.5 px-2 text-xs font-medium transition ${
+            className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl py-2.5 px-2 text-xs font-medium transition cursor-pointer ${
               activeTab === "sheets"
-                ? "bg-neutral-800 text-white shadow-sm ring-1 ring-neutral-700"
-                : "text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200"
+                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25"
+                : "text-blue-300/70 hover:bg-blue-600/15 hover:text-white"
             }`}
           >
             <GoogleSheetsLogo className="size-5" />
@@ -308,10 +308,10 @@ export function AddSourceModal({
 
           <button
             onClick={() => handleTabChange("gmail")}
-            className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl py-2.5 px-2 text-xs font-medium transition ${
+            className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl py-2.5 px-2 text-xs font-medium transition cursor-pointer ${
               activeTab === "gmail"
-                ? "bg-neutral-800 text-white shadow-sm ring-1 ring-neutral-700"
-                : "text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200"
+                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25"
+                : "text-blue-300/70 hover:bg-blue-600/15 hover:text-white"
             }`}
           >
             <GmailLogo className="size-5" />
@@ -320,23 +320,23 @@ export function AddSourceModal({
 
           <button
             onClick={() => handleTabChange("file")}
-            className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl py-2.5 px-2 text-xs font-medium transition ${
+            className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl py-2.5 px-2 text-xs font-medium transition cursor-pointer ${
               activeTab === "file"
-                ? "bg-neutral-800 text-white shadow-sm ring-1 ring-neutral-700"
-                : "text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200"
+                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25"
+                : "text-blue-300/70 hover:bg-blue-600/15 hover:text-white"
             }`}
           >
-            <Upload className="size-5 text-neutral-300" />
+            <Upload className="size-5 text-cyan-400" />
             <span>Upload File</span>
           </button>
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto p-5 bg-[#070e20]">
           {activeTab !== "file" && !token ? (
             /* Google OAuth & Account Login Callout */
             <div className="flex h-full flex-col items-center justify-center text-center p-4 space-y-4">
-              <div className="flex items-center gap-3 rounded-2xl bg-neutral-900/90 border border-neutral-800 px-5 py-3 shadow-inner">
+              <div className="flex items-center gap-3 rounded-2xl bg-[#0c1938] border border-blue-500/30 px-5 py-3 shadow-lg">
                 <GmailLogo className="size-7" />
                 <GoogleSheetsLogo className="size-7" />
                 <GoogleDriveLogo className="size-7" />
@@ -362,11 +362,11 @@ export function AddSourceModal({
                   type="button"
                   onClick={() => handleGoogleConnect()}
                   disabled={isConnecting}
-                  className="w-full flex items-center justify-center gap-3 rounded-2xl bg-white py-3 px-5 text-sm font-semibold text-black hover:bg-neutral-100 transition shadow-lg disabled:opacity-50 active:scale-[0.99] cursor-pointer"
+                  className="w-full flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 py-3 px-5 text-sm font-semibold text-white transition shadow-lg shadow-blue-500/25 disabled:opacity-50 active:scale-[0.99] cursor-pointer"
                 >
                   {isConnecting ? (
                     <>
-                      <Loader2 className="size-4 animate-spin text-black" />
+                      <Loader2 className="size-4 animate-spin text-white" />
                       <span>Authenticating with Google…</span>
                     </>
                   ) : (
@@ -378,8 +378,8 @@ export function AddSourceModal({
                 </button>
 
                 <div className="relative flex items-center justify-center py-1">
-                  <div className="border-t border-neutral-800 w-full" />
-                  <span className="bg-[#141415] px-3 text-[11px] text-neutral-500 uppercase tracking-wider">
+                  <div className="border-t border-blue-500/20 w-full" />
+                  <span className="bg-[#0c1938] px-3 text-[11px] text-blue-300/70 uppercase tracking-wider">
                     Or sign in with email
                   </span>
                 </div>
@@ -393,21 +393,21 @@ export function AddSourceModal({
                     }
                     handleGoogleConnect(googleEmailInput.trim());
                   }}
-                  className="rounded-2xl bg-neutral-900/90 border border-neutral-800 p-4 text-left space-y-3"
+                  className="rounded-2xl bg-[#0c1938] border border-blue-500/30 p-4 text-left space-y-3"
                 >
                   <div>
-                    <label className="block text-[11px] font-medium text-neutral-300 mb-1">
+                    <label className="block text-[11px] font-medium text-blue-200 mb-1">
                       Gmail / Google Account Email
                     </label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-2.5 size-4 text-neutral-500" />
+                      <Mail className="absolute left-3 top-2.5 size-4 text-blue-400" />
                       <input
                         type="email"
                         required
                         value={googleEmailInput}
                         onChange={(e) => setGoogleEmailInput(e.target.value)}
                         placeholder="you@gmail.com"
-                        className="w-full rounded-xl bg-neutral-950 border border-neutral-800 py-2 pl-9 pr-3 text-xs text-white placeholder:text-neutral-600 focus:border-blue-500 focus:outline-none"
+                        className="w-full rounded-xl bg-[#070e20] border border-blue-500/30 py-2 pl-9 pr-3 text-xs text-white placeholder:text-blue-300/40 focus:border-blue-400 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -415,7 +415,7 @@ export function AddSourceModal({
                   <button
                     type="submit"
                     disabled={isConnecting}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 py-2.5 px-4 text-xs font-semibold text-white transition shadow-xs disabled:opacity-50"
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600/30 hover:bg-blue-600/40 border border-blue-500/30 py-2.5 px-4 text-xs font-semibold text-white transition shadow-xs disabled:opacity-50 cursor-pointer"
                   >
                     <span>Connect Google Account</span>
                   </button>
@@ -656,10 +656,10 @@ export function AddSourceModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between border-t border-neutral-800/80 px-6 py-4 bg-neutral-900/40">
+        <div className="flex items-center justify-between border-t border-blue-500/20 px-6 py-4 bg-[#081226]/90">
           <button
             onClick={onClose}
-            className="rounded-full px-4 py-2 text-xs font-medium text-neutral-400 hover:text-white transition"
+            className="rounded-full px-4 py-2 text-xs font-medium text-blue-300/70 hover:text-white hover:bg-blue-600/20 transition cursor-pointer"
           >
             Cancel
           </button>
@@ -670,7 +670,7 @@ export function AddSourceModal({
               addingSources ||
               (activeTab === "file" ? !uploadFileContent : selectedIds.size === 0)
             }
-            className="flex items-center gap-2 rounded-full bg-white px-5 py-2 text-xs font-semibold text-black hover:bg-neutral-200 transition shadow disabled:opacity-40 active:scale-95"
+            className="flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 px-5 py-2 text-xs font-semibold text-white transition shadow-md shadow-blue-500/25 disabled:opacity-40 active:scale-95 cursor-pointer"
           >
             {addingSources ? (
               <>

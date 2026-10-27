@@ -1112,26 +1112,46 @@ export const importFromGitHub = createServerFn({ method: "POST" })
 
       const builtFiles: BuiltFile[] = [];
       await Promise.all(
-        candidateFiles.map(async (f) => {
+        candidateFiles.slice(0, 30).map(async (f) => {
           try {
-            const contentRes = await fetch(
-              `https://api.github.com/repos/${owner}/${repo}/contents/${f.path}?ref=${encodeURIComponent(defaultBranch)}`,
-              {
-                headers: {
-                  ...headers,
-                  Accept: "application/vnd.github.raw+json",
-                },
-              },
-            );
-            if (contentRes.ok) {
-              const text = await contentRes.text();
-              if (text && text.length > 0) {
-                builtFiles.push({
-                  path: f.path,
-                  language: inferLanguageFromPath(f.path),
-                  content: text,
-                });
+            const pathSegments = f.path.replace(/^\/+/, "").split("/").map(encodeURIComponent).join("/");
+            let text = "";
+
+            // If public repo or without token, try fast raw.githubusercontent.com CDN first
+            if (!isPrivate) {
+              try {
+                const rawCdnRes = await fetch(
+                  `https://raw.githubusercontent.com/${owner}/${repo}/${encodeURIComponent(defaultBranch)}/${f.path}`,
+                );
+                if (rawCdnRes.ok) {
+                  text = await rawCdnRes.text();
+                }
+              } catch {
+                // fallback to api
               }
+            }
+
+            if (!text) {
+              const contentRes = await fetch(
+                `https://api.github.com/repos/${owner}/${repo}/contents/${pathSegments}?ref=${encodeURIComponent(defaultBranch)}`,
+                {
+                  headers: {
+                    ...headers,
+                    Accept: "application/vnd.github.raw+json",
+                  },
+                },
+              );
+              if (contentRes.ok) {
+                text = await contentRes.text();
+              }
+            }
+
+            if (text && text.length > 0) {
+              builtFiles.push({
+                path: f.path,
+                language: inferLanguageFromPath(f.path),
+                content: text,
+              });
             }
           } catch {
             // ignore individual file fetch error
@@ -1272,9 +1292,11 @@ export const exportToGitHubRepo = createServerFn({ method: "POST" })
 
         for (const file of targetFiles.slice(0, 40)) {
           try {
+            const cleanPath = file.path.replace(/^\/+/, "");
+            const pathSegments = cleanPath.split("/").map(encodeURIComponent).join("/");
             let sha: string | undefined = undefined;
             const checkRes = await fetch(
-              `https://api.github.com/repos/${login}/${cleanRepoName}/contents/${encodeURIComponent(file.path)}`,
+              `https://api.github.com/repos/${login}/${cleanRepoName}/contents/${pathSegments}`,
               { headers },
             );
             if (checkRes.ok) {
@@ -1283,7 +1305,7 @@ export const exportToGitHubRepo = createServerFn({ method: "POST" })
             }
 
             const putRes = await fetch(
-              `https://api.github.com/repos/${login}/${cleanRepoName}/contents/${encodeURIComponent(file.path)}`,
+              `https://api.github.com/repos/${login}/${cleanRepoName}/contents/${pathSegments}`,
               {
                 method: "PUT",
                 headers: {
@@ -1291,7 +1313,7 @@ export const exportToGitHubRepo = createServerFn({ method: "POST" })
                   "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                  message: `Add ${file.path} via My AI Pro`,
+                  message: `Add ${cleanPath} via My AI Pro`,
                   content: Buffer.from(file.content, "utf-8").toString("base64"),
                   sha,
                 }),

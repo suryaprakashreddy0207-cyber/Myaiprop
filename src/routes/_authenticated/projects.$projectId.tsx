@@ -382,12 +382,18 @@ function ProjectDetailPage() {
   }
 
   return (
-    <div className="flex h-[100dvh] w-full flex-col bg-black text-white font-sans overflow-hidden">
-      {/* Top Header matching Screenshot 5 & 6 */}
-      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between px-4 bg-black/95 backdrop-blur-md border-b border-neutral-900">
+    <div className="relative flex h-[100dvh] w-full flex-col bg-[#070e20] text-blue-100 font-sans overflow-hidden">
+      {/* Ambient Lighting Glow matching AI Chat */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden z-0">
+        <div className="absolute top-0 left-1/3 size-[420px] rounded-full bg-blue-600/10 blur-[140px]" />
+        <div className="absolute bottom-10 right-10 size-[360px] rounded-full bg-indigo-600/10 blur-[140px]" />
+      </div>
+
+      {/* Top Header */}
+      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between px-4 bg-[#081226]/90 backdrop-blur-md border-b border-blue-500/20">
         <button
           onClick={() => navigate({ to: "/projects" })}
-          className="flex size-10 items-center justify-center rounded-full bg-neutral-900 text-white hover:bg-neutral-800 transition active:scale-95"
+          className="flex size-10 items-center justify-center rounded-full bg-blue-600/20 border border-blue-500/30 text-blue-200 hover:text-white hover:bg-blue-600/30 transition active:scale-95 cursor-pointer"
           aria-label="Back to projects"
         >
           <ArrowLeft className="size-5" />
@@ -398,8 +404,8 @@ function ProjectDetailPage() {
             {project?.title || "Project"}
           </h1>
           {project?.address && (
-            <span className="flex items-center gap-1 text-[10px] text-neutral-400 truncate max-w-full">
-              <MapPin className="size-2.5 text-amber-500 shrink-0" />
+            <span className="flex items-center gap-1 text-[10px] text-blue-300/70 truncate max-w-full">
+              <MapPin className="size-2.5 text-amber-400 shrink-0" />
               <span className="truncate">{project.address}</span>
             </span>
           )}
@@ -409,7 +415,7 @@ function ProjectDetailPage() {
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="flex size-10 items-center justify-center rounded-full bg-neutral-900 text-white hover:bg-neutral-800 transition active:scale-95"
+            className="flex size-10 items-center justify-center rounded-full bg-blue-600/20 border border-blue-500/30 text-blue-200 hover:text-white hover:bg-blue-600/30 transition active:scale-95 cursor-pointer"
             aria-label="Project options"
           >
             <MoreVertical className="size-5" />
@@ -417,15 +423,15 @@ function ProjectDetailPage() {
 
           {/* Three dots dropdown menu */}
           {menuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-52 rounded-2xl border border-neutral-800 bg-[#1c1c1e] p-1.5 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150">
+            <div className="absolute right-0 top-full mt-2 w-52 rounded-2xl border border-blue-500/30 bg-[#0c1938] p-1.5 shadow-2xl shadow-blue-950 z-50 animate-in fade-in zoom-in-95 duration-150">
               <button
                 onClick={() => {
                   setMenuOpen(false);
                   setShareOpen(true);
                 }}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-white hover:bg-neutral-800 transition text-left"
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-white hover:bg-blue-600/20 transition text-left cursor-pointer"
               >
-                <Share2 className="size-4 text-neutral-300" />
+                <Share2 className="size-4 text-blue-300" />
                 <span>Share project</span>
               </button>
 
@@ -434,9 +440,9 @@ function ProjectDetailPage() {
                   setMenuOpen(false);
                   setAddSourceOpen(true);
                 }}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-white hover:bg-neutral-800 transition text-left"
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-white hover:bg-blue-600/20 transition text-left cursor-pointer"
               >
-                <Plus className="size-4 text-neutral-300" />
+                <Plus className="size-4 text-blue-300" />
                 <span>Add sources</span>
               </button>
 
@@ -445,9 +451,9 @@ function ProjectDetailPage() {
                   setMenuOpen(false);
                   setSettingsOpen(true);
                 }}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-white hover:bg-neutral-800 transition text-left"
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-white hover:bg-blue-600/20 transition text-left cursor-pointer"
               >
-                <SettingsIcon className="size-4 text-neutral-300" />
+                <SettingsIcon className="size-4 text-blue-300" />
                 <span>Project settings</span>
               </button>
             </div>
@@ -455,48 +461,50 @@ function ProjectDetailPage() {
         </div>
       </header>
 
-      {/* Subtabs: Chats vs Sources matching Screenshot 5 & 6 */}
-      <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-neutral-900 bg-black">
-        <button
-          onClick={() => setActiveTab("chats")}
-          className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
-            activeTab === "chats"
-              ? "bg-[#2c2c2e] text-white"
-              : "text-neutral-400 hover:text-white"
-          }`}
-        >
-          Chats
-        </button>
+      {/* Subtabs: Chats vs Sources */}
+      <div className="relative z-10 flex items-center gap-2 px-4 pt-3 pb-2 border-b border-blue-500/20 bg-[#081226]/80 backdrop-blur-md">
+        <div className="flex items-center gap-1.5 rounded-full bg-[#0c1938] border border-blue-500/25 p-1 shadow-sm">
+          <button
+            onClick={() => setActiveTab("chats")}
+            className={`rounded-full px-4 py-1.5 text-xs font-semibold transition cursor-pointer ${
+              activeTab === "chats"
+                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm"
+                : "text-blue-300/70 hover:text-white"
+            }`}
+          >
+            Chats
+          </button>
 
-        <button
-          onClick={() => setActiveTab("sources")}
-          className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition ${
-            activeTab === "sources"
-              ? "bg-[#2c2c2e] text-white"
-              : "text-neutral-400 hover:text-white"
-          }`}
-        >
-          <span>Sources</span>
-          {project?.sources && project.sources.length > 0 && (
-            <span className="flex size-4 items-center justify-center rounded-full bg-neutral-700 text-[10px] text-white font-medium">
-              {project.sources.length}
-            </span>
-          )}
-        </button>
+          <button
+            onClick={() => setActiveTab("sources")}
+            className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition cursor-pointer ${
+              activeTab === "sources"
+                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm"
+                : "text-blue-300/70 hover:text-white"
+            }`}
+          >
+            <span>Sources</span>
+            {project?.sources && project.sources.length > 0 && (
+              <span className="flex size-4 items-center justify-center rounded-full bg-blue-500/30 text-[10px] text-cyan-300 font-medium">
+                {project.sources.length}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Main Tab Content */}
-      <main className="flex-1 overflow-y-auto flex flex-col">
+      <main className="relative z-10 flex-1 overflow-y-auto flex flex-col">
         {activeTab === "chats" ? (
           /* CHATS TAB */
           messages.length === 0 ? (
-            /* Empty State matching Screenshot 5 */
+            /* Empty State */
             <div className="my-auto flex flex-col items-center justify-center text-center px-4">
-              <div className="flex size-14 items-center justify-center rounded-2xl bg-[#1c1c1e] text-neutral-300 mb-4 shadow-inner">
+              <div className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white mb-4 shadow-lg shadow-blue-500/30">
                 <MessageSquare className="size-7" />
               </div>
               <h2 className="text-lg font-semibold text-white mb-1.5">No chats yet</h2>
-              <p className="text-xs text-neutral-400">Start chatting below</p>
+              <p className="text-xs text-blue-200/80">Start chatting below with project context</p>
             </div>
           ) : (
             /* Active Chat Feed */
@@ -510,10 +518,10 @@ function ProjectDetailPage() {
                     }`}
                   >
                     <div
-                      className={`max-w-[85%] rounded-3xl px-4 py-3 text-sm leading-relaxed text-white ${
+                      className={`max-w-[85%] rounded-3xl px-4 py-3 text-sm leading-relaxed ${
                         m.role === "user"
-                          ? "bg-brand text-white rounded-tr-md shadow-sm"
-                          : "bg-[#1c1c1e] text-white rounded-tl-md border border-neutral-800"
+                          ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-tr-md shadow-md shadow-blue-500/25"
+                          : "bg-[#0c1938] text-blue-100 rounded-tl-md border border-blue-500/30 shadow-md"
                       }`}
                     >
                       {m.role === "user" ? (
@@ -527,7 +535,7 @@ function ProjectDetailPage() {
                       <div className="flex items-center gap-2 mt-1.5 pl-2">
                         <button
                           onClick={() => speakText(m.content)}
-                          className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-neutral-400 hover:text-white transition"
+                          className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-blue-300/70 hover:text-white hover:bg-blue-600/20 transition cursor-pointer"
                         >
                           <Volume2 className="size-3" /> Listen
                         </button>
@@ -537,8 +545,8 @@ function ProjectDetailPage() {
                 ))}
 
                 {sending && (
-                  <div className="flex items-center gap-2 text-xs text-neutral-400 pl-2">
-                    <span className="inline-flex size-2 animate-pulse rounded-full bg-brand" />
+                  <div className="flex items-center gap-2 text-xs text-blue-300 pl-2">
+                    <span className="inline-flex size-2 animate-pulse rounded-full bg-blue-400 shadow-[0_0_8px_#3b82f6]" />
                     <span>My AI is thinking with project context…</span>
                   </div>
                 )}
@@ -546,34 +554,33 @@ function ProjectDetailPage() {
             </div>
           )
         ) : (
-          /* SOURCES TAB matching Screenshot 6 */
+          /* SOURCES TAB */
           <div className="flex-1 overflow-y-auto px-4 py-6">
             {!project?.sources || project.sources.length === 0 ? (
-              /* Empty Sources State matching Screenshot 6 */
+              /* Empty Sources State */
               <div className="my-auto flex flex-col items-center justify-center text-center px-4 py-16">
-                {/* 3 App Badges matching Screenshot 6 */}
                 <div className="flex items-center justify-center gap-3 mb-6">
-                  <div className="flex size-14 items-center justify-center rounded-2xl bg-[#1c1c1e] p-2.5 shadow-inner border border-neutral-800">
+                  <div className="flex size-14 items-center justify-center rounded-2xl bg-[#0c1938] p-2.5 shadow-md border border-blue-500/30">
                     <SlackLogo className="size-8" />
                   </div>
-                  <div className="flex size-14 items-center justify-center rounded-2xl bg-[#1c1c1e] p-2.5 shadow-inner border border-neutral-800">
+                  <div className="flex size-14 items-center justify-center rounded-2xl bg-[#0c1938] p-2.5 shadow-md border border-blue-500/30">
                     <GoogleDriveLogo className="size-8" />
                   </div>
-                  <div className="flex size-14 items-center justify-center rounded-2xl bg-[#1c1c1e] p-2.5 shadow-inner border border-neutral-800">
-                    <Paperclip className="size-7 text-neutral-300" />
+                  <div className="flex size-14 items-center justify-center rounded-2xl bg-[#0c1938] p-2.5 shadow-md border border-blue-500/30">
+                    <Paperclip className="size-7 text-blue-300" />
                   </div>
                 </div>
 
                 <h2 className="text-lg font-semibold text-white mb-2">
                   Give My AI more context
                 </h2>
-                <p className="max-w-xs text-xs text-neutral-400 leading-relaxed mb-6">
+                <p className="max-w-xs text-xs text-blue-200/80 leading-relaxed mb-6">
                   Upload Sources to give My AI deeper context about your project.
                 </p>
 
                 <button
                   onClick={() => setAddSourceOpen(true)}
-                  className="rounded-full bg-white px-8 py-2.5 text-xs font-semibold text-black hover:bg-neutral-200 transition shadow-lg active:scale-95"
+                  className="rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 px-8 py-2.5 text-xs font-semibold text-white transition shadow-lg shadow-blue-500/30 active:scale-95 cursor-pointer"
                 >
                   Add
                 </button>
@@ -581,13 +588,13 @@ function ProjectDetailPage() {
             ) : (
               /* Connected Sources List */
               <div className="max-w-2xl mx-auto w-full space-y-4">
-                <div className="flex items-center justify-between pb-2 border-b border-neutral-900">
-                  <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                <div className="flex items-center justify-between pb-2 border-b border-blue-500/20">
+                  <h3 className="text-xs font-semibold text-blue-300 uppercase tracking-wider">
                     Connected Sources ({project.sources.length})
                   </h3>
                   <button
                     onClick={() => setAddSourceOpen(true)}
-                    className="flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-black hover:bg-neutral-200 transition"
+                    className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md shadow-blue-500/25 hover:from-blue-500 hover:to-indigo-500 transition cursor-pointer"
                   >
                     <Plus className="size-3.5" />
                     <span>Add Source</span>
@@ -598,7 +605,7 @@ function ProjectDetailPage() {
                   {project.sources.map((s) => (
                     <div
                       key={s.id}
-                      className="flex items-start justify-between rounded-2xl bg-[#1c1c1e] p-4 border border-neutral-800/80 gap-3 group"
+                      className="flex items-start justify-between rounded-2xl bg-[#0c1938] p-4 border border-blue-500/25 hover:border-blue-400/50 shadow-md gap-3 group transition"
                     >
                       <div className="flex items-start gap-3 min-w-0">
                         <div className="p-1 mt-0.5">{renderSourceIcon(s.type)}</div>
@@ -607,13 +614,13 @@ function ProjectDetailPage() {
                             <h4 className="truncate text-xs font-semibold text-white">
                               {s.title}
                             </h4>
-                            <span className="rounded-md bg-neutral-800 px-1.5 py-0.5 text-[9px] uppercase font-bold text-neutral-400">
+                            <span className="rounded-md bg-blue-500/20 border border-blue-400/30 px-1.5 py-0.5 text-[9px] uppercase font-bold text-blue-300">
                               {s.type}
                             </span>
                           </div>
 
                           {s.snippet && (
-                            <p className="text-[11px] text-neutral-400 line-clamp-2 mt-1 leading-relaxed">
+                            <p className="text-[11px] text-blue-200/80 line-clamp-2 mt-1 leading-relaxed">
                               {s.snippet}
                             </p>
                           )}
@@ -623,7 +630,7 @@ function ProjectDetailPage() {
                               href={s.link}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-[10px] text-brand hover:underline mt-1"
+                              className="inline-flex items-center gap-1 text-[10px] text-blue-400 hover:underline mt-1"
                             >
                               <span>Open in Google</span>
                               <ExternalLink className="size-2.5" />
@@ -634,7 +641,7 @@ function ProjectDetailPage() {
 
                       <button
                         onClick={() => handleRemoveSource(s.id)}
-                        className="rounded-lg p-1.5 text-neutral-500 hover:text-destructive hover:bg-destructive/10 transition opacity-80 group-hover:opacity-100"
+                        className="rounded-lg p-1.5 text-blue-400/60 hover:text-red-400 hover:bg-red-500/10 transition opacity-80 group-hover:opacity-100 cursor-pointer"
                         title="Remove source"
                       >
                         <Trash2 className="size-4" />
@@ -648,20 +655,20 @@ function ProjectDetailPage() {
         )}
       </main>
 
-      {/* Bottom Composer matching Screenshot 5 & 6 */}
-      <footer className="shrink-0 px-4 pb-6 pt-2 bg-gradient-to-t from-black via-black to-transparent">
-        <div className="mx-auto max-w-xl flex items-center gap-2 rounded-full bg-[#1c1c1e] p-1.5 pl-3 border border-neutral-800 focus-within:border-neutral-600 transition shadow-2xl">
+      {/* Bottom Composer */}
+      <footer className="relative z-15 shrink-0 px-4 pb-6 pt-2 bg-gradient-to-t from-[#070e20] via-[#070e20] to-transparent">
+        <div className="mx-auto max-w-xl flex items-center gap-2 rounded-full bg-[#0c1938] p-1.5 pl-3 border border-blue-500/30 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 transition shadow-2xl">
           {/* Plus action button */}
           <button
             type="button"
             onClick={() => setAddSourceOpen(true)}
-            className="flex size-8 shrink-0 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition"
+            className="flex size-8 shrink-0 items-center justify-center rounded-full text-blue-300 hover:text-white hover:bg-blue-600/20 transition cursor-pointer"
             title="Add Google Drive, Sheets, Gmail or File"
           >
             <Plus className="size-5" />
           </button>
 
-          {/* Textarea/input with placeholder 'New chat' matching screenshot */}
+          {/* Textarea/input */}
           <input
             type="text"
             value={input}
@@ -672,17 +679,17 @@ function ProjectDetailPage() {
                 ? "Ask about these sources…"
                 : "New chat"
             }
-            className="flex-1 bg-transparent py-2 px-1 text-sm text-white placeholder:text-neutral-500 outline-none"
+            className="flex-1 bg-transparent py-2 px-1 text-sm text-white placeholder:text-blue-300/40 outline-none"
           />
 
           {/* Mic icon button */}
           <button
             type="button"
             onClick={handleVoiceInput}
-            className={`flex size-8 shrink-0 items-center justify-center rounded-full transition ${
+            className={`flex size-8 shrink-0 items-center justify-center rounded-full transition cursor-pointer ${
               listening
                 ? "bg-red-500 text-white animate-pulse"
-                : "text-neutral-400 hover:text-white hover:bg-neutral-800"
+                : "text-blue-300 hover:text-white hover:bg-blue-600/20"
             }`}
             title="Voice input"
           >
@@ -695,7 +702,7 @@ function ProjectDetailPage() {
               type="button"
               onClick={() => handleSendMessage()}
               disabled={sending}
-              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-500 transition shadow-md active:scale-95 disabled:opacity-50"
+              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-500 hover:to-indigo-500 transition shadow-md shadow-blue-500/25 active:scale-95 disabled:opacity-50 cursor-pointer"
               title="Send message"
             >
               {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
@@ -711,7 +718,7 @@ function ProjectDetailPage() {
                   handleSendMessage("Hello! Can you summarize what we can do in this project?");
                 }
               }}
-              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-500 transition shadow-md active:scale-95"
+              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-500 hover:to-indigo-500 transition shadow-md shadow-blue-500/25 active:scale-95 cursor-pointer"
               title="Audio assistant"
             >
               <AudioWaveform className="size-4" />

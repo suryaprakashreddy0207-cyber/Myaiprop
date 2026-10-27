@@ -38,6 +38,11 @@ import {
 } from "@/lib/user-session";
 import { disconnectGoogleWorkspace } from "@/lib/google-auth";
 import {
+  getAllAutonomousTasks,
+  stopAutonomousTask,
+  type AutonomousProjectTask,
+} from "@/lib/autonomous-task-store";
+import {
   Plus,
   Menu,
   LogOut,
@@ -124,6 +129,21 @@ function ChatLayout() {
   const [shareModalThread, setShareModalThread] = useState<LocalThread | null>(null);
   const [shareAccountInput, setShareAccountInput] = useState("");
   const [sessionUnlocked, setSessionUnlocked] = useState<Record<string, boolean>>({});
+  const [autonomousTasks, setAutonomousTasks] = useState<Record<string, AutonomousProjectTask>>(() => getAllAutonomousTasks());
+
+  useEffect(() => {
+    function handleTaskUpdate() {
+      setAutonomousTasks(getAllAutonomousTasks());
+    }
+    window.addEventListener("myaipro_autonomous_task_updated", handleTaskUpdate);
+    const interval = setInterval(() => {
+      setAutonomousTasks(getAllAutonomousTasks());
+    }, 4000);
+    return () => {
+      window.removeEventListener("myaipro_autonomous_task_updated", handleTaskUpdate);
+      clearInterval(interval);
+    };
+  }, []);
 
   // Load and sync local threads after mount and when user logs in/out
   useEffect(() => {
@@ -142,6 +162,7 @@ function ChatLayout() {
       setActiveUser(sess);
       const stored = getLocalThreads();
       setLocalThreadsState(stored);
+      setAutonomousTasks(getAllAutonomousTasks());
     }
     syncForUser();
     window.addEventListener("myaipro_auth_changed", syncForUser);
@@ -557,6 +578,12 @@ function ChatLayout() {
                     mounted={mounted}
                     active={location.includes(t.id)}
                     isUnlocked={!!sessionUnlocked[t.id] || isThreadUnlockedInSession(t.id)}
+                    task={autonomousTasks[t.id]}
+                    onStopTask={() => {
+                      stopAutonomousTask(t.id);
+                      setAutonomousTasks(getAllAutonomousTasks());
+                      toast.info("Stopped background agent for this project");
+                    }}
                     activeMenuThreadId={activeMenuThreadId}
                     setActiveMenuThreadId={setActiveMenuThreadId}
                     onSelect={() => setDrawerOpen(false)}
@@ -597,6 +624,12 @@ function ChatLayout() {
                     mounted={mounted}
                     active={location.includes(t.id)}
                     isUnlocked={!!sessionUnlocked[t.id] || isThreadUnlockedInSession(t.id)}
+                    task={autonomousTasks[t.id]}
+                    onStopTask={() => {
+                      stopAutonomousTask(t.id);
+                      setAutonomousTasks(getAllAutonomousTasks());
+                      toast.info("Stopped background agent for this project");
+                    }}
                     activeMenuThreadId={activeMenuThreadId}
                     setActiveMenuThreadId={setActiveMenuThreadId}
                     onSelect={() => setDrawerOpen(false)}
@@ -637,6 +670,12 @@ function ChatLayout() {
                     mounted={mounted}
                     active={location.includes(t.id)}
                     isUnlocked={!!sessionUnlocked[t.id] || isThreadUnlockedInSession(t.id)}
+                    task={autonomousTasks[t.id]}
+                    onStopTask={() => {
+                      stopAutonomousTask(t.id);
+                      setAutonomousTasks(getAllAutonomousTasks());
+                      toast.info("Stopped background agent for this project");
+                    }}
                     activeMenuThreadId={activeMenuThreadId}
                     setActiveMenuThreadId={setActiveMenuThreadId}
                     onSelect={() => setDrawerOpen(false)}
@@ -677,6 +716,12 @@ function ChatLayout() {
                     mounted={mounted}
                     active={location.includes(t.id)}
                     isUnlocked={!!sessionUnlocked[t.id] || isThreadUnlockedInSession(t.id)}
+                    task={autonomousTasks[t.id]}
+                    onStopTask={() => {
+                      stopAutonomousTask(t.id);
+                      setAutonomousTasks(getAllAutonomousTasks());
+                      toast.info("Stopped background agent for this project");
+                    }}
                     activeMenuThreadId={activeMenuThreadId}
                     setActiveMenuThreadId={setActiveMenuThreadId}
                     onSelect={() => setDrawerOpen(false)}
@@ -810,10 +855,7 @@ function ChatLayout() {
             title="Go to Home Screen"
           >
             <h1 className="font-serif text-lg font-bold tracking-tight text-white flex items-center gap-1.5 cursor-pointer">
-              <span>My AI</span>
-              <span className="inline-flex items-center rounded-full bg-blue-500/20 border border-blue-400/30 px-2 py-0.5 text-[10px] font-semibold text-blue-300">
-                1.1
-              </span>
+              <span>My AI Pro</span>
             </h1>
           </Link>
           {currentThread && currentThread.title && currentThread.title !== "New conversation" ? (
@@ -1314,12 +1356,14 @@ function ChatLayout() {
   );
 }
 
-/** Individual thread item in the History drawer with 3-dots actions, lock badge, and start name & end preview */
+/** Individual thread item in the History drawer with animated 3-dots indicator for active tasks, lock badge, and options */
 function ThreadItem({
   thread,
   active,
   mounted,
   isUnlocked,
+  task,
+  onStopTask,
   activeMenuThreadId,
   setActiveMenuThreadId,
   onSelect,
@@ -1333,6 +1377,8 @@ function ThreadItem({
   active: boolean;
   mounted: boolean;
   isUnlocked: boolean;
+  task?: AutonomousProjectTask | null;
+  onStopTask?: () => void;
   activeMenuThreadId: string | null;
   setActiveMenuThreadId: (id: string | null) => void;
   onSelect: () => void;
@@ -1344,6 +1390,7 @@ function ThreadItem({
 }) {
   const isMenuOpen = activeMenuThreadId === thread.id;
   const isCurrentlyLocked = !!thread.isLocked && !isUnlocked && !isThreadUnlockedInSession(thread.id);
+  const isTaskWorking = task?.status === "working";
 
   function handleClick(e: React.MouseEvent) {
     if (isCurrentlyLocked) {
@@ -1362,14 +1409,14 @@ function ThreadItem({
         params={{ threadId: thread.id }}
         onClick={handleClick}
         className={cn(
-          "flex-1 min-w-0 rounded-xl px-3 py-2 text-left transition pr-9",
+          "flex-1 min-w-0 rounded-xl px-3 py-2 text-left transition pr-10",
           active
             ? "bg-blue-600/25 text-white ring-1 ring-blue-500/40"
             : "text-blue-200/80 hover:bg-blue-600/15 hover:text-white",
         )}
       >
         <div className="flex items-center justify-between gap-1 mb-0.5">
-          {/* Thread Title + Lock Indicator */}
+          {/* Thread Title + Lock Indicator + Autonomous Task Badge */}
           <div className="flex items-center gap-1.5 min-w-0">
             {thread.isLocked && (
               <span title="Locked conversation">
@@ -1379,6 +1426,15 @@ function ThreadItem({
             <span className="truncate text-xs font-semibold text-white">
               {thread.title || "Conversation"}
             </span>
+            {isTaskWorking && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-cyan-500/20 border border-cyan-400/40 px-1.5 py-0.2 text-[9px] font-semibold text-cyan-300 shrink-0 animate-pulse"
+                title={`AI working on ${task?.projectName || "project"} (${task?.currentPhase})`}
+              >
+                <span className="size-1 rounded-full bg-cyan-400" />
+                <span>Working</span>
+              </span>
+            )}
           </div>
           <span className="shrink-0 text-[10px] text-blue-300/60">
             {mounted ? formatHistoryDate(thread.updated_at) : ""}
@@ -1395,7 +1451,7 @@ function ThreadItem({
         )}
       </Link>
 
-      {/* 3-dots Menu Button */}
+      {/* 3-dots Menu Button with Animation when AI is Working */}
       <div className="absolute right-1.5 flex items-center">
         <button
           type="button"
@@ -1405,21 +1461,60 @@ function ThreadItem({
             setActiveMenuThreadId(isMenuOpen ? null : thread.id);
           }}
           className={cn(
-            "p-1.5 rounded-lg text-blue-300/70 hover:text-white hover:bg-blue-600/20 transition cursor-pointer",
-            isMenuOpen && "text-white bg-blue-600/20",
+            "p-1.5 rounded-lg transition cursor-pointer relative",
+            isTaskWorking
+              ? "text-cyan-300 bg-cyan-500/15 ring-1 ring-cyan-400/50 shadow-[0_0_12px_rgba(34,211,238,0.4)] hover:bg-cyan-500/25"
+              : isMenuOpen
+                ? "text-white bg-blue-600/20"
+                : "text-blue-300/70 hover:text-white hover:bg-blue-600/20",
           )}
-          title="Chat options"
+          title={isTaskWorking ? "AI Agent is actively working on this project (Click for options)" : "Chat options"}
           aria-label="Chat options"
         >
-          <MoreVertical className="size-3.5" />
+          {isTaskWorking ? (
+            <span className="flex items-center gap-0.5 px-0.5" title="Agent working">
+              <span className="size-1 rounded-full bg-cyan-400 animate-bounce" style={{ animationDelay: "0ms" }} />
+              <span className="size-1 rounded-full bg-cyan-300 animate-bounce" style={{ animationDelay: "150ms" }} />
+              <span className="size-1 rounded-full bg-cyan-200 animate-bounce" style={{ animationDelay: "300ms" }} />
+            </span>
+          ) : (
+            <MoreVertical className="size-3.5" />
+          )}
         </button>
 
-        {/* 3-dots Dropdown with Lock/Unlock, Share, and Delete */}
+        {/* 3-dots Dropdown with Lock/Unlock, Share, Stop Working, and Delete */}
         {isMenuOpen && (
           <div
             onClick={(e) => e.stopPropagation()}
-            className="absolute right-0 top-full mt-1 w-44 rounded-xl border border-blue-500/30 bg-[#0c1938] p-1.5 shadow-2xl shadow-blue-950 z-50 animate-in fade-in zoom-in-95"
+            className="absolute right-0 top-full mt-1 w-48 rounded-xl border border-blue-500/30 bg-[#0c1938] p-1.5 shadow-2xl shadow-blue-950 z-50 animate-in fade-in zoom-in-95"
           >
+            {isTaskWorking && (
+              <>
+                <div className="px-2.5 py-1.5 rounded-lg bg-cyan-950/60 border border-cyan-500/30 text-[11px] text-cyan-200 mb-1">
+                  <div className="font-semibold text-cyan-300 flex items-center gap-1">
+                    <span className="size-1.5 rounded-full bg-cyan-400 animate-ping" />
+                    <span>Autonomous Agent Active</span>
+                  </div>
+                  <div className="text-[10px] text-cyan-300/80 capitalize mt-0.5">
+                    Phase: {task?.currentPhase}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveMenuThreadId(null);
+                    onStopTask?.();
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-amber-300 hover:bg-amber-500/15 transition text-left cursor-pointer"
+                >
+                  <RotateCcw className="size-3.5 text-amber-400" />
+                  <span>Stop Working</span>
+                </button>
+                <div className="my-1 border-t border-blue-500/20" />
+              </>
+            )}
+
             {thread.isLocked ? (
               <button
                 type="button"

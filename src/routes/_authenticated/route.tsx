@@ -92,13 +92,13 @@ function ProtectedContent() {
 
   if (loading && !hasLocalSession) {
     return (
-      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-[#0c0906] font-sans text-stone-100 select-none">
+      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-[#070e20] font-sans text-blue-100 select-none">
         <div className="relative flex flex-col items-center space-y-4">
-          <div className="relative flex size-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-600 to-orange-500 shadow-[0_0_35px_rgba(245,158,11,0.5)] animate-pulse">
+          <div className="relative flex size-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 shadow-[0_0_35px_rgba(59,130,246,0.5)] animate-pulse">
             <Sparkles className="size-7 fill-white text-white" />
           </div>
-          <div className="flex items-center space-x-2 text-stone-300">
-            <Loader2 className="size-4 animate-spin text-amber-400" />
+          <div className="flex items-center space-x-2 text-blue-300">
+            <Loader2 className="size-4 animate-spin text-blue-400" />
             <span className="text-sm font-medium tracking-wide">
               Authenticating with Myaipro…
             </span>

@@ -112,7 +112,21 @@ export function getLocalMessages(threadId: string): LocalMessage[] {
 export function saveLocalMessages(threadId: string, messages: LocalMessage[]): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(getMessagesKey(threadId), JSON.stringify(messages));
+    try {
+      localStorage.setItem(getMessagesKey(threadId), JSON.stringify(messages));
+    } catch {
+      // Quota exceeded fallback: strip massive base64 strings so storage never throws
+      try {
+        const sanitized = messages.map((m) => ({
+          ...m,
+          image_url: m.image_url && m.image_url.startsWith("data:") ? m.image_url.slice(0, 120) : m.image_url,
+          images: m.images?.map((img) => (img.startsWith("data:") ? img.slice(0, 120) : img)),
+        }));
+        localStorage.setItem(getMessagesKey(threadId), JSON.stringify(sanitized));
+      } catch {
+        // ignore
+      }
+    }
 
     // Also update thread metadata in the user's threads list
     const threads = getLocalThreads();

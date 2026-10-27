@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Camera, X, RotateCw, Check, AlertCircle, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 
+import { compressImageToDataUrl } from "../lib/image-compressor";
+
 interface CameraModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -84,8 +86,16 @@ export function CameraModal({ isOpen, onClose, onCapture }: CameraModalProps) {
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
+    const maxW = 1280;
+    let w = video.videoWidth || 1280;
+    let h = video.videoHeight || 720;
+    if (w > maxW) {
+      h = Math.round((h * maxW) / w);
+      w = maxW;
+    }
+
+    canvas.width = w;
+    canvas.height = h;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
@@ -95,7 +105,7 @@ export function CameraModal({ isOpen, onClose, onCapture }: CameraModalProps) {
     }
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
     setCapturedPhoto(dataUrl);
     stopStream();
   }
@@ -117,18 +127,19 @@ export function CameraModal({ isOpen, onClose, onCapture }: CameraModalProps) {
     setFacingMode((prev) => (prev === "environment" ? "user" : "environment"));
   }
 
-  function handleNativeFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleNativeFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      onCapture(dataUrl, file.name || `photo-${Date.now()}.jpg`);
+    try {
+      const compressed = await compressImageToDataUrl(file, 1280, 0.82);
+      onCapture(compressed.dataUrl, file.name || `photo-${Date.now()}.jpg`);
       toast.success("Photo captured & saved into chat!");
       onClose();
-    };
-    reader.readAsDataURL(file);
-    e.target.value = "";
+    } catch {
+      toast.error("Failed to process captured photo");
+    } finally {
+      e.target.value = "";
+    }
   }
 
   if (!isOpen) return null;

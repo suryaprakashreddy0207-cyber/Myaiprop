@@ -96,68 +96,81 @@ function ProjectsIndexPage() {
   }, [projects, activeTab, searchQuery, currentUserId]);
 
   return (
-    <div className="flex min-h-[100dvh] w-full flex-col bg-black text-white font-sans">
+    <div className="relative flex min-h-[100dvh] w-full flex-col bg-[#070e20] text-blue-100 font-sans overflow-x-hidden">
+      {/* Ambient Lighting Glow matching AI Chat */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden z-0">
+        <div className="absolute top-0 left-1/3 size-[420px] rounded-full bg-blue-600/10 blur-[140px]" />
+        <div className="absolute bottom-10 right-10 size-[360px] rounded-full bg-indigo-600/10 blur-[140px]" />
+      </div>
+
       {/* Top Header */}
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between px-4 bg-black/95 backdrop-blur-md border-b border-neutral-900">
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between px-4 bg-[#081226]/90 backdrop-blur-md border-b border-blue-500/20">
         <button
           onClick={() => navigate({ to: "/chat" })}
-          className="flex size-10 items-center justify-center rounded-full bg-neutral-900 text-white hover:bg-neutral-800 transition active:scale-95"
+          className="flex size-10 items-center justify-center rounded-full bg-blue-600/20 border border-blue-500/30 text-blue-200 hover:text-white hover:bg-blue-600/30 transition active:scale-95 cursor-pointer"
           aria-label="Back to chat"
         >
           <ArrowLeft className="size-5" />
         </button>
 
-        <h1 className="text-base font-semibold text-white">Projects</h1>
+        <h1 className="text-base font-semibold text-white flex items-center gap-2">
+          <span>Projects</span>
+          <span className="rounded-full bg-blue-500/20 border border-blue-400/30 px-2 py-0.5 text-[10px] font-semibold text-blue-300">
+            {projects.length}
+          </span>
+        </h1>
 
         <button
           onClick={() => navigate({ to: "/projects/new" })}
-          className="flex size-10 items-center justify-center rounded-full bg-neutral-900 text-white hover:bg-neutral-800 transition active:scale-95"
+          className="flex size-10 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 hover:from-blue-500 hover:to-indigo-500 transition active:scale-95 cursor-pointer"
           aria-label="New Project"
         >
           <Plus className="size-5" />
         </button>
       </header>
 
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-2 px-4 pt-3 pb-2 overflow-x-auto scrollbar-none">
-        <button
-          onClick={() => setActiveTab("all")}
-          className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
-            activeTab === "all"
-              ? "bg-[#2c2c2e] text-white"
-              : "text-neutral-400 hover:text-white"
-          }`}
-        >
-          All
-        </button>
-        <button
-          onClick={() => setActiveTab("created")}
-          className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
-            activeTab === "created"
-              ? "bg-[#2c2c2e] text-white"
-              : "text-neutral-400 hover:text-white"
-          }`}
-        >
-          Created by you
-        </button>
-        <button
-          onClick={() => setActiveTab("shared")}
-          className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
-            activeTab === "shared"
-              ? "bg-[#2c2c2e] text-white"
-              : "text-neutral-400 hover:text-white"
-          }`}
-        >
-          Shared with you
-        </button>
+      {/* Filter Tabs matching AI Chat pills */}
+      <div className="relative z-10 flex items-center gap-2 px-4 pt-3 pb-2 overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-1.5 rounded-full bg-[#0c1938] border border-blue-500/25 p-1 shadow-sm">
+          <button
+            onClick={() => setActiveTab("all")}
+            className={`rounded-full px-4 py-1.5 text-xs font-semibold transition cursor-pointer ${
+              activeTab === "all"
+                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm"
+                : "text-blue-300/70 hover:text-white"
+            }`}
+          >
+            All
+          </button>
+          <button
+            onClick={() => setActiveTab("created")}
+            className={`rounded-full px-4 py-1.5 text-xs font-semibold transition cursor-pointer ${
+              activeTab === "created"
+                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm"
+                : "text-blue-300/70 hover:text-white"
+            }`}
+          >
+            Created by you
+          </button>
+          <button
+            onClick={() => setActiveTab("shared")}
+            className={`rounded-full px-4 py-1.5 text-xs font-semibold transition cursor-pointer ${
+              activeTab === "shared"
+                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm"
+                : "text-blue-300/70 hover:text-white"
+            }`}
+          >
+            Shared with you
+          </button>
+        </div>
       </div>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col px-4 py-6">
+      <main className="relative z-10 flex-1 flex flex-col px-4 py-6">
         {filteredProjects.length === 0 ? (
-          /* Empty State matching screenshots 1, 2, 3 */
+          /* Empty State */
           <div className="my-auto flex flex-col items-center justify-center text-center px-4">
-            <div className="flex size-14 items-center justify-center rounded-2xl bg-[#1c1c1e] text-neutral-300 mb-4 shadow-inner">
+            <div className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white mb-4 shadow-lg shadow-blue-500/30">
               <Folder className="size-7" />
             </div>
 
@@ -169,7 +182,7 @@ function ProjectsIndexPage() {
                 : "No shared projects yet"}
             </h2>
 
-            <p className="max-w-xs text-xs text-neutral-400 leading-relaxed mb-6">
+            <p className="max-w-xs text-xs text-blue-200/80 leading-relaxed mb-6">
               {activeTab === "all"
                 ? "Projects help you organize chats, files, and tools in one place"
                 : activeTab === "created"
@@ -180,7 +193,7 @@ function ProjectsIndexPage() {
             {activeTab !== "shared" ? (
               <button
                 onClick={() => navigate({ to: "/projects/new" })}
-                className="rounded-full bg-white px-6 py-2.5 text-xs font-semibold text-black hover:bg-neutral-200 transition shadow-lg active:scale-95"
+                className="rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 px-6 py-2.5 text-xs font-semibold text-white transition shadow-lg shadow-blue-500/30 active:scale-95 cursor-pointer"
               >
                 New project
               </button>
@@ -194,24 +207,24 @@ function ProjectsIndexPage() {
                 key={project.id}
                 to="/projects/$projectId"
                 params={{ projectId: project.id }}
-                className="flex items-center justify-between rounded-2xl bg-[#1c1c1e] p-4 hover:bg-[#252528] transition border border-neutral-800/60 group"
+                className="flex items-center justify-between rounded-2xl bg-[#0c1938] p-4 hover:bg-[#0f1f45] transition border border-blue-500/25 hover:border-blue-400/50 shadow-md group"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-neutral-800 text-neutral-200 group-hover:text-white transition">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-300 group-hover:text-white group-hover:bg-blue-600/30 transition">
                     <Folder className="size-5" />
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="truncate text-sm font-semibold text-white">
+                      <h3 className="truncate text-sm font-semibold text-white group-hover:text-blue-200 transition">
                         {project.title}
                       </h3>
                       {project.category && project.category !== "General" && (
-                        <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-[10px] text-neutral-300 font-medium">
+                        <span className="rounded-full bg-blue-500/20 border border-blue-400/30 px-2 py-0.5 text-[10px] text-blue-300 font-medium">
                           {project.category}
                         </span>
                       )}
                     </div>
-                    <p className="truncate text-xs text-neutral-400 mt-0.5">
+                    <p className="truncate text-xs text-blue-200/70 mt-0.5">
                       {project.address
                         ? `📍 ${project.address}`
                         : project.description ||
@@ -220,17 +233,17 @@ function ProjectsIndexPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 text-neutral-500 shrink-0 ml-2">
+                <div className="flex items-center gap-2 text-blue-300/60 shrink-0 ml-2">
                   {project.sources && project.sources.length > 0 && (
-                    <span className="flex items-center gap-1 text-[11px] text-neutral-400">
-                      <Database className="size-3 text-neutral-400" />
+                    <span className="flex items-center gap-1 text-[11px] text-blue-300/80 bg-blue-500/15 border border-blue-500/25 px-2 py-0.5 rounded-full">
+                      <Database className="size-3 text-cyan-400" />
                       {project.sources.length}
                     </span>
                   )}
                   {project.isShared && (
-                    <Users className="size-3.5 text-neutral-400" />
+                    <Users className="size-3.5 text-blue-300" />
                   )}
-                  <ChevronRight className="size-4 group-hover:translate-x-0.5 transition" />
+                  <ChevronRight className="size-4 text-blue-400/60 group-hover:translate-x-0.5 group-hover:text-blue-300 transition" />
                 </div>
               </Link>
             ))}
@@ -238,16 +251,16 @@ function ProjectsIndexPage() {
         )}
       </main>
 
-      {/* Bottom Search Bar matching screenshot */}
-      <footer className="sticky bottom-0 z-20 px-4 pb-6 pt-2 bg-gradient-to-t from-black via-black to-transparent">
+      {/* Bottom Search Bar */}
+      <footer className="sticky bottom-0 z-20 px-4 pb-6 pt-2 bg-gradient-to-t from-[#070e20] via-[#070e20] to-transparent">
         <div className="relative mx-auto max-w-xl">
-          <Search className="absolute left-4 top-3.5 size-4 text-neutral-400 pointer-events-none" />
+          <Search className="absolute left-4 top-3.5 size-4 text-blue-400 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search"
-            className="w-full rounded-full bg-[#1c1c1e] py-3 pl-11 pr-4 text-sm text-white placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-600 transition"
+            placeholder="Search projects or sources…"
+            className="w-full rounded-full bg-[#0c1938] border border-blue-500/30 py-3 pl-11 pr-4 text-sm text-white placeholder:text-blue-300/40 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition shadow-lg"
           />
         </div>
       </footer>

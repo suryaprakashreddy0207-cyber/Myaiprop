@@ -208,10 +208,12 @@ export function CodeExplorer({
   files,
   appName = "my-app",
   onUpdateFiles,
+  onExportGitHub,
 }: {
   files: CodeFile[];
   appName?: string;
   onUpdateFiles?: (updated: CodeFile[]) => void;
+  onExportGitHub?: () => void;
 }) {
   // Ensure there are always real multi-file codebase items
   const resolvedFiles = useMemo(() => {
@@ -393,6 +395,17 @@ export function CodeExplorer({
             <Download className="size-3.5" />
             <span className="hidden sm:inline">Export ZIP</span>
           </button>
+
+          {onExportGitHub && (
+            <button
+              onClick={onExportGitHub}
+              className="flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 px-3.5 py-1.5 text-xs font-semibold text-white transition active:scale-95 cursor-pointer shadow-xs"
+              title="Export codebase directly to GitHub repository"
+            >
+              <Github className="size-3.5 text-white" />
+              <span className="hidden sm:inline">Export to GitHub</span>
+            </button>
+          )}
         </div>
       </div>
 
