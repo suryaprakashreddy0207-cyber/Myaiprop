@@ -17,6 +17,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { OpenAILogo } from "@/components/icons/app-logos";
 
 export interface ConnectorItem {
   id: string;
@@ -435,7 +436,7 @@ export function ConnectorsModal({
                           <span className="text-amber-700 dark:text-amber-300 font-serif text-lg font-bold">✴</span>
                         )}
                         {item.iconType === "openai" && (
-                          <Bot className="size-5 text-zinc-900 dark:text-white" />
+                          <OpenAILogo className="size-5 text-zinc-900 dark:text-white" />
                         )}
                         {item.iconType === "perplexity" && (
                           <span className="text-sm font-black text-cyan-400">⌘</span>

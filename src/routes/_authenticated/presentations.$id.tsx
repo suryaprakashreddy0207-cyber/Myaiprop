@@ -6,6 +6,8 @@ import {
   getPresentation,
   updatePresentation,
   generateSlideImage,
+  editSlideImage,
+  enhanceSlidePrompt,
   illustrateDeck,
   type Slide,
 } from "@/lib/presentations.functions";
@@ -23,6 +25,7 @@ import {
   Shapes,
   Palette,
   Plus,
+  Minus,
   Trash2,
   X,
   Loader2,
@@ -33,6 +36,10 @@ import {
   Presentation as PresentationIcon,
   Copy,
   Sparkles,
+  Wand2,
+  Sliders,
+  Maximize2,
+  Minimize2,
   Upload,
   Check,
   Eye,
@@ -68,6 +75,10 @@ import {
   loadAllPresentations,
   saveAllPresentations,
   getCurrentUserEmail,
+  loadAllPresentationAssets,
+  savePresentationAsset,
+  getPendingForwardedImage,
+  clearPendingForwardedImage,
   type PresentationDeckItem,
 } from "@/lib/presentations-store";
 import { SharePresentationModal } from "@/components/share-presentation-modal";
@@ -75,6 +86,9 @@ import { SharePresentationModal } from "@/components/share-presentation-modal";
 export const Route = createFileRoute("/_authenticated/presentations/$id")({
   validateSearch: (search: Record<string, unknown>) => ({
     share: typeof search.share === "string" ? search.share : undefined,
+    image: typeof search.image === "string" ? search.image : undefined,
+    img: typeof search.img === "string" ? search.img : undefined,
+    forwardedImage: typeof search.forwardedImage === "string" ? search.forwardedImage : undefined,
   }),
   component: DeckPage,
 });
@@ -212,6 +226,8 @@ function DeckPage() {
   const getFn = useServerFn(getPresentation);
   const updFn = useServerFn(updatePresentation);
   const imgFn = useServerFn(generateSlideImage);
+  const editImgFn = useServerFn(editSlideImage);
+  const enhancePromptFn = useServerFn(enhanceSlidePrompt);
   const deckImgFn = useServerFn(illustrateDeck);
 
   // Load from local store
@@ -254,17 +270,70 @@ function DeckPage() {
   const [titleSize, setTitleSize] = useState(28);
   const [bodySize, setBodySize] = useState(15);
   const [activeTool, setActiveTool] = useState<ToolType>(null);
+  
+  // Open-Generative-AI Studio States
   const [imgPrompt, setImgPrompt] = useState("");
+  const [imgStyle, setImgStyle] = useState<string>("photorealistic");
+  const [imgAspectRatio, setImgAspectRatio] = useState<"16:9" | "1:1" | "4:3">("16:9");
+  const [imgNegativePrompt, setImgNegativePrompt] = useState("");
+  const [imgEditPrompt, setImgEditPrompt] = useState("");
+  const [imgStudioTab, setImgStudioTab] = useState<"generate" | "edit" | "upload">("generate");
+  const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
+  const [isDrawerDragOver, setIsDrawerDragOver] = useState(false);
+
   const [voiceOn, setVoiceOn] = useState(false);
   const [voiceScript, setVoiceScript] = useState("");
   const [speaking, setSpeaking] = useState(false);
-  const [uploadedAssets, setUploadedAssets] = useState<string[]>([]);
+  const [uploadedAssets, setUploadedAssets] = useState<string[]>(() => {
+    return loadAllPresentationAssets();
+  });
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const studioFileInputRef = useRef<HTMLInputElement>(null);
 
   const currentEmail = useMemo(() => getCurrentUserEmail(), []);
+
+  // Listen for global presentation assets updates from sheets/upload/storage
+  useEffect(() => {
+    function syncAssets() {
+      setUploadedAssets(loadAllPresentationAssets());
+    }
+    syncAssets();
+    window.addEventListener("myaipro_presentation_assets_updated", syncAssets);
+    window.addEventListener("myaipro_forwarded_image_ready", syncAssets);
+    window.addEventListener("storage", syncAssets);
+    return () => {
+      window.removeEventListener("myaipro_presentation_assets_updated", syncAssets);
+      window.removeEventListener("myaipro_forwarded_image_ready", syncAssets);
+      window.removeEventListener("storage", syncAssets);
+    };
+  }, []);
+
+  // Check for forwarded image from search params or localStorage
+  useEffect(() => {
+    const searchImg = search.forwardedImage || search.image || search.img;
+    const pendingImg = searchImg || getPendingForwardedImage();
+
+    if (pendingImg && slides.length > 0) {
+      savePresentationAsset(pendingImg);
+      setUploadedAssets(loadAllPresentationAssets());
+
+      const targetSlide = slides[currentIdx] || slides[0];
+      if (targetSlide && targetSlide.image_url !== pendingImg) {
+        updateCurrentSlide({
+          image_url: pendingImg,
+          image_scale: targetSlide.image_scale || 75,
+          image_height: targetSlide.image_height || 200,
+          image_align: targetSlide.image_align || "center",
+          image_fit: targetSlide.image_fit || "cover",
+        });
+        toast.success("Forwarded image imported & placed onto slide!");
+      }
+      clearPendingForwardedImage();
+    }
+  }, [search, slides.length, currentIdx]);
 
   // Determine view-only mode
   const isViewOnly = useMemo(() => {
@@ -320,7 +389,6 @@ function DeckPage() {
       qc.invalidateQueries({ queryKey: ["presentations"] });
     },
     onError: (e: any) => {
-      // Local fallback still guarantees saved data
       syncToLocalStorage(slides, title);
       setDirty(false);
       toast.success("Presentation saved locally!");
@@ -328,17 +396,81 @@ function DeckPage() {
   });
 
   const genImg = useMutation({
-    mutationFn: (prompt: string) => imgFn({ data: { id, slideIndex: currentIdx, prompt } }),
+    mutationFn: (overridePrompt?: string) =>
+      imgFn({
+        data: {
+          id,
+          slideIndex: currentIdx,
+          prompt: (overridePrompt || imgPrompt).trim() || slide.title,
+          style: imgStyle,
+          aspectRatio: imgAspectRatio,
+          negativePrompt: imgNegativePrompt || undefined,
+        },
+      }),
     onSuccess: (r) => {
-      const next = slides.map((sl, idx) => (idx === r.slideIndex ? { ...sl, image_url: r.image_url } : sl));
+      const next = slides.map((sl, idx) =>
+        idx === r.slideIndex
+          ? {
+              ...sl,
+              image_url: r.image_url,
+              image_scale: sl.image_scale || 75,
+              image_align: sl.image_align || "center",
+              image_height: sl.image_height || 200,
+            }
+          : sl,
+      );
       setSlides(next);
-      setImgPrompt("");
+      setUploadedAssets((prev) => (prev.includes(r.image_url) ? prev : [r.image_url, ...prev]));
       setDirty(true);
       syncToLocalStorage(next, title);
-      toast.success("Image generated & added to slide!");
+      toast.success("AI Image generated & inserted onto slide!");
     },
     onError: (e: any) => toast.error(e.message ?? "Image generation failed"),
   });
+
+  const editImgMut = useMutation({
+    mutationFn: (editPrompt: string) => {
+      if (!slide.image_url) throw new Error("No image on this slide to edit");
+      return editImgFn({
+        data: {
+          id,
+          slideIndex: currentIdx,
+          currentImageUrl: slide.image_url,
+          editPrompt,
+          style: imgStyle,
+        },
+      });
+    },
+    onSuccess: (r) => {
+      const next = slides.map((sl, idx) =>
+        idx === r.slideIndex ? { ...sl, image_url: r.image_url } : sl,
+      );
+      setSlides(next);
+      setUploadedAssets((prev) => (prev.includes(r.image_url) ? prev : [r.image_url, ...prev]));
+      setImgEditPrompt("");
+      setDirty(true);
+      syncToLocalStorage(next, title);
+      toast.success("Image edited & updated on slide!");
+    },
+    onError: (e: any) => toast.error(e.message ?? "Failed to edit image"),
+  });
+
+  async function handleEnhancePrompt() {
+    const raw = imgPrompt.trim() || slide.title;
+    if (!raw) return;
+    setIsEnhancingPrompt(true);
+    try {
+      const res = await enhancePromptFn({ data: { prompt: raw, style: imgStyle } });
+      if (res?.enhancedPrompt) {
+        setImgPrompt(res.enhancedPrompt);
+        toast.success("Prompt enhanced with Open-Generative-AI details!");
+      }
+    } catch {
+      toast.error("Could not enhance prompt");
+    } finally {
+      setIsEnhancingPrompt(false);
+    }
+  }
 
   const illustrate = useMutation({
     mutationFn: () => deckImgFn({ data: { id } }),
@@ -407,15 +539,28 @@ function DeckPage() {
     toast.success("Slide deleted");
   }
 
+  // Helper to place image directly onto current slide and save to studio library
+  function applyImageToSlide(dataUrl: string, notifyMsg = "Image placed on slide & saved to library!") {
+    updateCurrentSlide({
+      image_url: dataUrl,
+      image_scale: slide.image_scale || 75,
+      image_size: slide.image_size || "medium",
+      image_align: slide.image_align || "center",
+      image_height: slide.image_height || 200,
+      image_fit: slide.image_fit || "cover",
+    });
+    savePresentationAsset(dataUrl);
+    setUploadedAssets(loadAllPresentationAssets());
+    toast.success(notifyMsg);
+  }
+
   // Upload user image with compression
   async function handleCustomUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const compressed = await compressImageToDataUrl(file, 1280, 0.82);
-      updateCurrentSlide({ image_url: compressed.dataUrl });
-      setUploadedAssets((prev) => [compressed.dataUrl, ...prev]);
-      toast.success("Custom image added to current slide!");
+      const compressed = await compressImageToDataUrl(file, 1280, 0.85);
+      applyImageToSlide(compressed.dataUrl, "Image uploaded & placed on slide!");
     } catch {
       toast.error("Could not process image");
     } finally {
@@ -432,8 +577,7 @@ function DeckPage() {
     // Check dropped asset from gallery
     const assetUrl = e.dataTransfer.getData("text/plain");
     if (assetUrl && (assetUrl.startsWith("data:image/") || assetUrl.startsWith("http"))) {
-      updateCurrentSlide({ image_url: assetUrl });
-      toast.success("Image dropped onto slide!");
+      applyImageToSlide(assetUrl, "Image placed onto slide!");
       return;
     }
 
@@ -442,13 +586,35 @@ function DeckPage() {
     const imgFile = files.find((f) => f.type.startsWith("image/"));
     if (imgFile) {
       try {
-        const compressed = await compressImageToDataUrl(imgFile, 1280, 0.82);
-        updateCurrentSlide({ image_url: compressed.dataUrl });
-        setUploadedAssets((prev) => [compressed.dataUrl, ...prev]);
-        toast.success("Image uploaded & placed on slide!");
+        const compressed = await compressImageToDataUrl(imgFile, 1280, 0.85);
+        applyImageToSlide(compressed.dataUrl, "Image dropped & placed on slide!");
       } catch {
         toast.error("Could not process dropped image");
       }
+    }
+  }
+
+  // Drag and drop image into the Upload Image Studio drawer
+  async function handleStudioDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDrawerDragOver(false);
+    if (isViewOnly) return;
+
+    const files = Array.from(e.dataTransfer.files);
+    const imgFile = files.find((f) => f.type.startsWith("image/"));
+    if (imgFile) {
+      try {
+        const compressed = await compressImageToDataUrl(imgFile, 1280, 0.85);
+        applyImageToSlide(compressed.dataUrl, "Image uploaded & placed on slide!");
+      } catch {
+        toast.error("Could not process dropped image");
+      }
+      return;
+    }
+
+    const assetUrl = e.dataTransfer.getData("text/plain");
+    if (assetUrl && (assetUrl.startsWith("data:image/") || assetUrl.startsWith("http"))) {
+      applyImageToSlide(assetUrl, "Image placed onto slide!");
     }
   }
 
@@ -751,7 +917,7 @@ function DeckPage() {
             </div>
           )}
 
-          {/* Slide Content: Title and Bullets */}
+          {/* Slide Content: Title, Stats Callout, and Bullets */}
           <div className="space-y-4">
             <input
               value={slide.title ?? ""}
@@ -761,6 +927,20 @@ function DeckPage() {
               placeholder="Slide Title..."
               style={{ fontSize: titleSize, textAlign, color: activeTextColor }}
             />
+
+            {/* Big Stat Callout (Trained on Canva & Gemini Stats Slides) */}
+            {slide.stat_number && (
+              <div className="my-2 inline-flex flex-col rounded-2xl bg-white/10 border border-white/20 p-3.5 backdrop-blur-md shadow-lg">
+                <span className="font-sans text-3xl sm:text-5xl font-black text-cyan-300 tracking-tight">
+                  {slide.stat_number}
+                </span>
+                {slide.stat_label && (
+                  <span className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-white/80 mt-1">
+                    {slide.stat_label}
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Bullet Points */}
             <div className="mt-4 space-y-3">
@@ -783,7 +963,6 @@ function DeckPage() {
                       style={{ fontSize: bodySize, color: activeTextColor }}
                     />
                   </div>
-
                   {!isViewOnly && (
                     <button
                       onClick={() => {
@@ -814,22 +993,251 @@ function DeckPage() {
             </div>
           </div>
 
-          {/* Slide Image Slot with Drag & Drop or Upload indicator */}
+          {/* Slide Image Slot with Interactive Sizing Controls: Decrease, Increase, Slider, Presets, Alignment, Fit & AI Edit */}
           {slide.image_url ? (
-            <div className="relative mt-3 max-h-36 w-full max-w-sm self-end overflow-hidden rounded-2xl border border-white/20 shadow-xl group/img">
-              <img src={slide.image_url} alt="" className="h-full w-full object-cover" />
-              {!isViewOnly && (
-                <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 group-hover/img:opacity-100 transition">
-                  <button
-                    onClick={() => updateCurrentSlide({ image_url: undefined })}
-                    className="flex size-7 items-center justify-center rounded-full bg-black/70 text-white hover:bg-red-600 transition cursor-pointer"
-                    title="Remove image"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
+            (() => {
+              const currentScale =
+                slide.image_scale ??
+                (slide.image_size === "small"
+                  ? 35
+                  : slide.image_size === "medium"
+                    ? 60
+                    : slide.image_size === "large"
+                      ? 85
+                      : 100);
+              const currentHeight =
+                slide.image_height ??
+                (slide.image_size === "small"
+                  ? 130
+                  : slide.image_size === "large"
+                    ? 240
+                    : slide.image_size === "full"
+                      ? 290
+                      : 190);
+              const currentFit = slide.image_fit || "cover";
+
+              return (
+                <div
+                  className={cn(
+                    "relative mt-3 overflow-hidden rounded-2xl border border-white/20 shadow-xl group/img transition-all",
+                    slide.image_align === "left" && "mr-auto",
+                    slide.image_align === "center" && "mx-auto",
+                    (!slide.image_align || slide.image_align === "right") && "ml-auto",
+                  )}
+                  style={{
+                    width: `${currentScale}%`,
+                    maxWidth: "100%",
+                    height: `${currentHeight}px`,
+                  }}
+                >
+                  <img
+                    src={slide.image_url}
+                    alt=""
+                    className={cn(
+                      "h-full w-full",
+                      currentFit === "contain" ? "object-contain bg-black/40" : "object-cover",
+                    )}
+                  />
+
+                  {/* Corner Interactive Resize Handles */}
+                  {!isViewOnly && (
+                    <>
+                      <button
+                        type="button"
+                        title="Decrease size (-5%)"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateCurrentSlide({ image_scale: Math.max(15, currentScale - 5) });
+                        }}
+                        className="absolute top-2 left-2 size-3.5 rounded-full bg-cyan-400 border-2 border-white shadow-lg opacity-0 group-hover/img:opacity-100 hover:scale-125 transition cursor-nwse-resize z-20"
+                      />
+                      <button
+                        type="button"
+                        title="Increase size (+5%)"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateCurrentSlide({ image_scale: Math.min(100, currentScale + 5) });
+                        }}
+                        className="absolute top-2 right-2 size-3.5 rounded-full bg-cyan-400 border-2 border-white shadow-lg opacity-0 group-hover/img:opacity-100 hover:scale-125 transition cursor-nesw-resize z-20"
+                      />
+                      <button
+                        type="button"
+                        title="Decrease size (-5%)"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateCurrentSlide({ image_scale: Math.max(15, currentScale - 5) });
+                        }}
+                        className="absolute bottom-2 left-2 size-3.5 rounded-full bg-cyan-400 border-2 border-white shadow-lg opacity-0 group-hover/img:opacity-100 hover:scale-125 transition cursor-nesw-resize z-20"
+                      />
+                      <button
+                        type="button"
+                        title="Increase size (+5%)"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateCurrentSlide({ image_scale: Math.min(100, currentScale + 5) });
+                        }}
+                        className="absolute bottom-2 right-2 size-3.5 rounded-full bg-cyan-400 border-2 border-white shadow-lg opacity-0 group-hover/img:opacity-100 hover:scale-125 transition cursor-nwse-resize z-20"
+                      />
+                    </>
+                  )}
+
+                  {!isViewOnly && (
+                    <div className="absolute inset-x-2 top-2 flex flex-wrap items-center justify-between gap-1.5 opacity-90 group-hover/img:opacity-100 transition-opacity bg-black/90 backdrop-blur-md rounded-xl px-2.5 py-1.5 shadow-2xl z-10 border border-white/15">
+                      {/* Interactive Size Decreasing / Increasing Controls */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200">
+                          Size:
+                        </span>
+
+                        {/* Decrease Size Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateCurrentSlide({
+                              image_scale: Math.max(20, currentScale - 10),
+                            });
+                          }}
+                          className="flex size-5 items-center justify-center rounded-md bg-white/10 hover:bg-white/25 text-white transition cursor-pointer"
+                          title="Decrease image size (-10%)"
+                        >
+                          <Minus className="size-3" />
+                        </button>
+
+                        {/* Percentage Slider */}
+                        <input
+                          type="range"
+                          min="20"
+                          max="100"
+                          step="5"
+                          value={currentScale}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            updateCurrentSlide({
+                              image_scale: Number(e.target.value),
+                            });
+                          }}
+                          className="w-14 sm:w-20 h-1.5 accent-cyan-400 bg-white/20 rounded cursor-pointer"
+                          title={`Current size: ${currentScale}%`}
+                        />
+
+                        {/* Increase Size Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateCurrentSlide({
+                              image_scale: Math.min(100, currentScale + 10),
+                            });
+                          }}
+                          className="flex size-5 items-center justify-center rounded-md bg-white/10 hover:bg-white/25 text-white transition cursor-pointer"
+                          title="Increase image size (+10%)"
+                        >
+                          <Plus className="size-3" />
+                        </button>
+
+                        <span className="font-mono text-[10px] font-bold text-cyan-300 w-7 text-right">
+                          {currentScale}%
+                        </span>
+                      </div>
+
+                      {/* Quick Presets & Fit Toggle */}
+                      <div className="flex items-center gap-1">
+                        {[
+                          { label: "25%", val: 25 },
+                          { label: "50%", val: 50 },
+                          { label: "75%", val: 75 },
+                          { label: "100%", val: 100 },
+                        ].map((preset) => (
+                          <button
+                            key={preset.val}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateCurrentSlide({ image_scale: preset.val });
+                            }}
+                            className={cn(
+                              "px-1.5 py-0.5 text-[9px] font-bold rounded transition cursor-pointer",
+                              currentScale === preset.val
+                                ? "bg-cyan-500 text-black font-extrabold"
+                                : "bg-white/10 text-white/70 hover:bg-white/20",
+                            )}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateCurrentSlide({
+                              image_fit: currentFit === "cover" ? "contain" : "cover",
+                            });
+                          }}
+                          className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-white/10 text-white/80 hover:bg-white/20 transition cursor-pointer"
+                          title={`Toggle object fit (Currently: ${currentFit})`}
+                        >
+                          {currentFit === "cover" ? "Crop" : "Fit"}
+                        </button>
+                      </div>
+
+                      {/* Alignment, Open-GenAI Edit, & Delete */}
+                      <div className="flex items-center gap-1">
+                        {(["left", "center", "right"] as const).map((al) => (
+                          <button
+                            key={al}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateCurrentSlide({ image_align: al });
+                            }}
+                            className={cn(
+                              "px-1.5 py-0.5 text-[9px] font-bold rounded uppercase transition cursor-pointer",
+                              (slide.image_align === al || (!slide.image_align && al === "center"))
+                                ? "bg-blue-600 text-white"
+                                : "bg-white/10 text-white/70 hover:bg-white/20",
+                            )}
+                            title={`Align ${al}`}
+                          >
+                            {al[0]}
+                          </button>
+                        ))}
+
+                        {/* Open-GenAI Edit Trigger */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveTool("image");
+                            setImgStudioTab("edit");
+                          }}
+                          className="flex items-center gap-1 rounded bg-gradient-to-r from-blue-600 to-indigo-600 px-1.5 py-0.5 text-[9px] font-bold text-white hover:brightness-110 transition cursor-pointer shadow-xs"
+                          title="Edit this image with Open-Generative-AI"
+                        >
+                          <Wand2 className="size-2.5" />
+                          <span>AI Edit</span>
+                        </button>
+
+                        {/* Delete button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateCurrentSlide({ image_url: undefined });
+                          }}
+                          className="flex size-5 items-center justify-center rounded bg-red-600/80 text-white hover:bg-red-600 transition cursor-pointer"
+                          title="Remove image from this slide"
+                        >
+                          <Trash2 className="size-3" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()
           ) : (
             !isViewOnly && (
               <div
@@ -956,9 +1364,23 @@ function DeckPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-blue-200 block mb-1">
-                      Text Colors:
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold text-blue-200">
+                        Text Colors:
+                      </label>
+                      <label className="flex items-center gap-1.5 text-[11px] text-blue-300 hover:text-white cursor-pointer bg-white/5 border border-white/20 rounded-xl px-2 py-0.5">
+                        <input
+                          type="color"
+                          value={customTextColor || "#ffffff"}
+                          onChange={(e) => {
+                            setCustomTextColor(e.target.value);
+                            setDirty(true);
+                          }}
+                          className="size-4 rounded border-0 bg-transparent p-0 cursor-pointer"
+                        />
+                        <span>Custom Picker</span>
+                      </label>
+                    </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {COLOR_PRESETS.map((c) => (
                         <button
@@ -980,72 +1402,493 @@ function DeckPage() {
               </div>
             )}
 
-            {/* Tool 3: Image & Upload Studio */}
+            {/* Tool 3: Open-Generative-AI Image & Upload Studio */}
             {activeTool === "image" && (
               <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    value={imgPrompt}
-                    onChange={(e) => setImgPrompt(e.target.value)}
-                    placeholder="Describe AI image for this slide (e.g. futuristic cloud architecture diagram)..."
-                    className="flex-1 rounded-2xl border border-blue-500/30 bg-[#070e20] px-3.5 py-2 text-xs text-white placeholder:text-blue-300/40 outline-none focus:border-blue-400"
-                  />
-                  <button
-                    onClick={() => genImg.mutate(imgPrompt.trim() || slide.title)}
-                    disabled={genImg.isPending}
-                    className="flex items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:brightness-110 disabled:opacity-50 transition cursor-pointer shrink-0"
-                  >
-                    {genImg.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
-                    <span>AI Generate</span>
-                  </button>
+                {/* Studio Sub-Tabs */}
+                <div className="flex flex-wrap items-center gap-1.5 border-b border-blue-500/20 pb-2">
+                  {[
+                    { id: "generate", label: "🎨 Open-GenAI Generator", icon: Sparkles },
+                    { id: "edit", label: "🪄 AI Image Edit", icon: Wand2 },
+                    { id: "upload", label: "📁 Upload & Dropzone", icon: Upload },
+                    { id: "size", label: "📏 Size & Placement", icon: Sliders },
+                  ].map((tab) => {
+                    const Icon = tab.icon;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setImgStudioTab(tab.id as any)}
+                        className={cn(
+                          "flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer",
+                          imgStudioTab === tab.id
+                            ? "bg-blue-600 text-white shadow-md shadow-blue-500/30"
+                            : "bg-[#0c1938] text-blue-300 hover:bg-blue-600/20 hover:text-white border border-blue-500/20",
+                        )}
+                      >
+                        <Icon className="size-3.5" />
+                        <span>{tab.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleCustomUpload}
-                  />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-2 rounded-2xl border border-blue-500/30 bg-[#0c1938] px-4 py-2 text-xs font-semibold text-white hover:bg-blue-600/25 transition cursor-pointer"
-                  >
-                    <Upload className="size-3.5 text-cyan-400" />
-                    <span>Upload Image from Device</span>
-                  </button>
-
-                  <span className="text-[11px] text-blue-300/70">
-                    💡 Tip: You can also drag and drop images directly onto the slide canvas above!
-                  </span>
-                </div>
-
-                {/* Uploaded Gallery */}
-                {uploadedAssets.length > 0 && (
-                  <div className="space-y-1.5 pt-1">
-                    <label className="text-[11px] font-semibold uppercase tracking-wider text-blue-300/70 block">
-                      Uploaded Assets (Click or drag onto slide):
-                    </label>
-                    <div className="flex gap-2.5 overflow-x-auto pb-1">
-                      {uploadedAssets.map((asset, idx) => (
-                        <div
-                          key={idx}
-                          draggable
-                          onDragStart={(e) => {
-                            e.dataTransfer.setData("text/plain", asset);
-                          }}
-                          onClick={() => updateCurrentSlide({ image_url: asset })}
-                          className="group relative size-16 shrink-0 rounded-2xl border border-blue-500/30 overflow-hidden hover:scale-105 transition cursor-pointer shadow-md"
-                          title="Click to insert or drag onto slide"
+                {/* TAB 1: Open-Generative-AI Generator */}
+                {imgStudioTab === "generate" && (
+                  <div className="space-y-3.5">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold text-blue-200">
+                          AI Prompt (Open-Generative-AI Engine):
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleEnhancePrompt}
+                          disabled={isEnhancingPrompt}
+                          className="flex items-center gap-1 text-[11px] font-bold text-cyan-300 hover:text-white bg-cyan-500/10 border border-cyan-500/30 rounded-lg px-2 py-0.5 transition cursor-pointer disabled:opacity-50"
                         >
-                          <img src={asset} alt="" className="h-full w-full object-cover" />
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition">
-                            <Plus className="size-4 text-white" />
+                          {isEnhancingPrompt ? (
+                            <Loader2 className="size-3 animate-spin" />
+                          ) : (
+                            <Sparkles className="size-3 text-cyan-400" />
+                          )}
+                          <span>✨ Enhance Prompt</span>
+                        </button>
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <textarea
+                          rows={2}
+                          value={imgPrompt}
+                          onChange={(e) => setImgPrompt(e.target.value)}
+                          placeholder="Describe visual concept (e.g. Autonomous delivery drone landing softly on urban rooftop, cinematic golden hour)..."
+                          className="flex-1 rounded-2xl border border-blue-500/30 bg-[#070e20] p-3 text-xs text-white placeholder:text-blue-300/40 outline-none focus:border-blue-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => genImg.mutate()}
+                          disabled={genImg.isPending}
+                          className="flex flex-col sm:flex-row items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-3 text-xs font-bold text-white shadow-lg hover:brightness-110 disabled:opacity-50 transition cursor-pointer shrink-0"
+                        >
+                          {genImg.isPending ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="size-4" />
+                          )}
+                          <span>Generate & Insert</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Style Presets from Open-Generative-AI */}
+                    <div>
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-blue-300/80 block mb-1.5">
+                        Visual Style:
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { id: "photorealistic", label: "📸 Photorealistic" },
+                          { id: "cinematic", label: "🎬 Cinematic 35mm" },
+                          { id: "ghibli", label: "🎨 Studio Ghibli" },
+                          { id: "3d_render", label: "🧊 3D Octane Render" },
+                          { id: "vector", label: "📐 Vector Flat Art" },
+                          { id: "cyberpunk", label: "⚡ Cyberpunk Neon" },
+                          { id: "minimalist", label: "💼 Minimalist Keynote" },
+                          { id: "watercolor", label: "🖌️ Watercolor" },
+                        ].map((st) => (
+                          <button
+                            key={st.id}
+                            type="button"
+                            onClick={() => setImgStyle(st.id)}
+                            className={cn(
+                              "rounded-xl px-2.5 py-1 text-xs font-semibold transition cursor-pointer",
+                              imgStyle === st.id
+                                ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-xs"
+                                : "bg-[#0c1938] text-blue-300 hover:bg-blue-600/20 border border-blue-500/20",
+                            )}
+                          >
+                            {st.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Aspect Ratio & Negative Prompt */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-blue-300/80 block mb-1">
+                          Aspect Ratio:
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          {(["16:9", "1:1", "4:3"] as const).map((ar) => (
+                            <button
+                              key={ar}
+                              type="button"
+                              onClick={() => setImgAspectRatio(ar)}
+                              className={cn(
+                                "rounded-xl px-3 py-1 text-xs font-semibold transition cursor-pointer",
+                                imgAspectRatio === ar
+                                  ? "bg-blue-600 text-white"
+                                  : "bg-[#0c1938] text-blue-300 border border-blue-500/20",
+                              )}
+                            >
+                              {ar === "16:9" ? "16:9 (Slide)" : ar === "1:1" ? "1:1 (Square)" : "4:3"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-blue-300/80 block mb-1">
+                          Negative Prompt (Optional):
+                        </label>
+                        <input
+                          type="text"
+                          value={imgNegativePrompt}
+                          onChange={(e) => setImgNegativePrompt(e.target.value)}
+                          placeholder="e.g. blurry, text, distorted, ugly..."
+                          className="w-full rounded-xl border border-blue-500/20 bg-[#070e20] px-3 py-1 text-xs text-white placeholder:text-blue-300/40 outline-none focus:border-blue-400"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 2: AI Image Edit & Refine */}
+                {imgStudioTab === "edit" && (
+                  <div className="space-y-3.5">
+                    {slide.image_url ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3 bg-[#070e20] p-2.5 rounded-2xl border border-blue-500/20">
+                          <img
+                            src={slide.image_url}
+                            alt="Current Slide Image"
+                            className="size-16 rounded-xl object-cover shrink-0 border border-white/20"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-xs font-bold text-white truncate">
+                              Current Slide Image Target
+                            </h4>
+                            <p className="text-[11px] text-blue-300/70 mt-0.5">
+                              Describe modifications to generate a refined variation using AI.
+                            </p>
                           </div>
                         </div>
-                      ))}
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-blue-200">
+                            Edit Instruction:
+                          </label>
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <input
+                              type="text"
+                              value={imgEditPrompt}
+                              onChange={(e) => setImgEditPrompt(e.target.value)}
+                              placeholder="e.g. Change background to dark navy cyberpunk grid, add dramatic rim light..."
+                              className="flex-1 rounded-2xl border border-blue-500/30 bg-[#070e20] px-3.5 py-2 text-xs text-white placeholder:text-blue-300/40 outline-none focus:border-blue-400"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => editImgMut.mutate(imgEditPrompt)}
+                              disabled={editImgMut.isPending || !imgEditPrompt.trim()}
+                              className="flex items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:brightness-110 disabled:opacity-50 transition cursor-pointer shrink-0"
+                            >
+                              {editImgMut.isPending ? (
+                                <Loader2 className="size-3.5 animate-spin" />
+                              ) : (
+                                <Wand2 className="size-3.5" />
+                              )}
+                              <span>Apply AI Edit</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-blue-500/30 bg-[#0c1938]/40 p-6 text-center">
+                        <ImageIcon className="size-8 text-blue-400/50 mx-auto mb-2" />
+                        <p className="text-xs font-semibold text-white">No image on current slide</p>
+                        <p className="text-[11px] text-blue-300/70 mt-1">
+                          Generate or upload an image first to edit and create variations.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setImgStudioTab("generate")}
+                          className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-500 transition cursor-pointer"
+                        >
+                          <Sparkles className="size-3.5" />
+                          <span>Generate Image</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 3: Upload & Drag-Drop Studio */}
+                {imgStudioTab === "upload" && (
+                  <div className="space-y-4">
+                    {/* Big Interactive Drag & Drop Box */}
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDrawerDragOver(true);
+                      }}
+                      onDragLeave={() => setIsDrawerDragOver(false)}
+                      onDrop={handleStudioDrop}
+                      onClick={() => studioFileInputRef.current?.click()}
+                      className={cn(
+                        "relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition cursor-pointer group",
+                        isDrawerDragOver
+                          ? "border-cyan-400 bg-cyan-500/15 scale-[1.01]"
+                          : "border-blue-500/35 bg-[#070e20] hover:border-blue-400 hover:bg-[#0c1938]",
+                      )}
+                    >
+                      <input
+                        type="file"
+                        ref={studioFileInputRef}
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleCustomUpload}
+                      />
+                      <div className="flex size-12 items-center justify-center rounded-2xl bg-blue-600/20 text-cyan-400 group-hover:scale-110 group-hover:bg-blue-600/30 transition shadow-inner mb-2.5">
+                        <Upload className="size-6" />
+                      </div>
+                      <h4 className="text-xs sm:text-sm font-bold text-white">
+                        {isDrawerDragOver ? "Drop image to place on slide now!" : "Drag & drop image file here, or click to browse"}
+                      </h4>
+                      <p className="text-[11px] text-blue-300/70 mt-1 max-w-sm">
+                        Automatically sets onto the current slide and stores in your studio library.
+                      </p>
                     </div>
+
+                    {/* Uploaded & Generated Library Tray */}
+                    {uploadedAssets.length > 0 && (
+                      <div className="space-y-1.5 pt-1">
+                        <label className="text-[11px] font-semibold uppercase tracking-wider text-blue-300/70 block">
+                          Recent Studio Library (Click to place on current slide):
+                        </label>
+                        <div className="flex gap-2.5 overflow-x-auto pb-1">
+                          {uploadedAssets.map((asset, idx) => (
+                            <div
+                              key={idx}
+                              draggable
+                              onDragStart={(e) => {
+                                e.dataTransfer.setData("text/plain", asset);
+                              }}
+                              onClick={() => applyImageToSlide(asset, "Library image applied to current slide!")}
+                              className="group relative size-16 shrink-0 rounded-2xl border border-blue-500/30 overflow-hidden hover:scale-105 transition cursor-pointer shadow-md"
+                              title="Click to apply or drag onto slide"
+                            >
+                              <img src={asset} alt="" className="h-full w-full object-cover" />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition">
+                                <Plus className="size-4 text-cyan-300" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 4: Size & Placement Controls */}
+                {imgStudioTab === "size" && (
+                  <div className="space-y-4">
+                    {slide.image_url ? (
+                      (() => {
+                        const currentScale =
+                          slide.image_scale ??
+                          (slide.image_size === "small"
+                            ? 35
+                            : slide.image_size === "medium"
+                              ? 60
+                              : slide.image_size === "large"
+                                ? 85
+                                : 100);
+                        const currentHeight =
+                          slide.image_height ??
+                          (slide.image_size === "small"
+                            ? 130
+                            : slide.image_size === "large"
+                              ? 240
+                              : slide.image_size === "full"
+                                ? 290
+                                : 190);
+                        const currentFit = slide.image_fit || "cover";
+
+                        return (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-[#070e20] p-4 rounded-2xl border border-blue-500/20">
+                            {/* Width Sizing Steppers & Slider */}
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <label className="text-xs font-semibold text-blue-200">
+                                  Image Width:
+                                </label>
+                                <span className="font-mono text-xs font-bold text-cyan-300">
+                                  {currentScale}%
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateCurrentSlide({
+                                      image_scale: Math.max(20, currentScale - 10),
+                                    })
+                                  }
+                                  className="flex items-center gap-1 rounded-xl bg-white/10 px-2.5 py-1 text-xs font-semibold text-white hover:bg-white/20 transition cursor-pointer"
+                                  title="Decrease size by 10%"
+                                >
+                                  <Minus className="size-3" />
+                                  <span>-10%</span>
+                                </button>
+
+                                <input
+                                  type="range"
+                                  min="20"
+                                  max="100"
+                                  step="5"
+                                  value={currentScale}
+                                  onChange={(e) =>
+                                    updateCurrentSlide({
+                                      image_scale: Number(e.target.value),
+                                    })
+                                  }
+                                  className="flex-1 accent-cyan-400 bg-white/20 rounded cursor-pointer"
+                                />
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateCurrentSlide({
+                                      image_scale: Math.min(100, currentScale + 10),
+                                    })
+                                  }
+                                  className="flex items-center gap-1 rounded-xl bg-white/10 px-2.5 py-1 text-xs font-semibold text-white hover:bg-white/20 transition cursor-pointer"
+                                  title="Increase size by 10%"
+                                >
+                                  <Plus className="size-3" />
+                                  <span>+10%</span>
+                                </button>
+                              </div>
+
+                              {/* Presets */}
+                              <div className="flex items-center gap-1.5 pt-1">
+                                {[
+                                  { label: "25% (Tiny)", val: 25 },
+                                  { label: "50% (Small)", val: 50 },
+                                  { label: "75% (Medium)", val: 75 },
+                                  { label: "100% (Full)", val: 100 },
+                                ].map((pr) => (
+                                  <button
+                                    key={pr.val}
+                                    type="button"
+                                    onClick={() => updateCurrentSlide({ image_scale: pr.val })}
+                                    className={cn(
+                                      "px-2 py-1 text-[10px] font-bold rounded-lg transition cursor-pointer",
+                                      currentScale === pr.val
+                                        ? "bg-cyan-500 text-black font-extrabold"
+                                        : "bg-white/10 text-white/70 hover:bg-white/20",
+                                    )}
+                                  >
+                                    {pr.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Height & Alignment */}
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <label className="text-xs font-semibold text-blue-200">
+                                  Image Height:
+                                </label>
+                                <span className="font-mono text-xs font-bold text-cyan-300">
+                                  {currentHeight}px
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateCurrentSlide({
+                                      image_height: Math.max(80, currentHeight - 20),
+                                    })
+                                  }
+                                  className="rounded-xl bg-white/10 px-2.5 py-1 text-xs font-semibold text-white hover:bg-white/20 transition cursor-pointer"
+                                >
+                                  ↕ -20px
+                                </button>
+
+                                <input
+                                  type="range"
+                                  min="80"
+                                  max="420"
+                                  step="10"
+                                  value={currentHeight}
+                                  onChange={(e) =>
+                                    updateCurrentSlide({
+                                      image_height: Number(e.target.value),
+                                    })
+                                  }
+                                  className="flex-1 accent-cyan-400 bg-white/20 rounded cursor-pointer"
+                                />
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateCurrentSlide({
+                                      image_height: Math.min(420, currentHeight + 20),
+                                    })
+                                  }
+                                  className="rounded-xl bg-white/10 px-2.5 py-1 text-xs font-semibold text-white hover:bg-white/20 transition cursor-pointer"
+                                >
+                                  ↕ +20px
+                                </button>
+                              </div>
+
+                              {/* Alignment & Fit */}
+                              <div className="flex items-center justify-between pt-1">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[10px] font-semibold text-blue-300/80 mr-1">Align:</span>
+                                  {(["left", "center", "right"] as const).map((al) => (
+                                    <button
+                                      key={al}
+                                      type="button"
+                                      onClick={() => updateCurrentSlide({ image_align: al })}
+                                      className={cn(
+                                        "px-2 py-0.5 text-[10px] font-bold rounded capitalize transition cursor-pointer",
+                                        (slide.image_align === al || (!slide.image_align && al === "center"))
+                                          ? "bg-blue-600 text-white"
+                                          : "bg-white/10 text-white/70 hover:bg-white/20",
+                                      )}
+                                    >
+                                      {al}
+                                    </button>
+                                  ))}
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateCurrentSlide({
+                                      image_fit: currentFit === "cover" ? "contain" : "cover",
+                                    })
+                                  }
+                                  className="px-2.5 py-0.5 text-[10px] font-bold rounded bg-white/10 text-white hover:bg-white/20 transition cursor-pointer"
+                                >
+                                  Fit: {currentFit === "cover" ? "Crop (Cover)" : "Fit Entire (Contain)"}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <p className="text-xs text-blue-300/70 p-4 text-center">
+                        Add an image to this slide to adjust its dimensions and alignment.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

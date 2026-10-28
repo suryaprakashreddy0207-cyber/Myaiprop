@@ -31,7 +31,86 @@ export interface PresentationDeckItem {
   customTextColor?: string;
 }
 
+export interface PresentationAssetItem {
+  id: string;
+  url: string;
+  name?: string;
+  source?: string;
+  createdAt: string;
+}
+
 export const SAVED_DECKS_STORAGE_KEY = "myaipro_saved_presentations";
+export const ASSETS_STORAGE_KEY = "myaipro_presentation_assets";
+export const FORWARD_IMAGE_STORAGE_KEY = "myaipro_pending_forwarded_image";
+
+export function loadAllPresentationAssets(): PresentationAssetItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(ASSETS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function savePresentationAsset(asset: { url: string; name?: string; source?: string }): PresentationAssetItem {
+  const list = loadAllPresentationAssets();
+  const existing = list.find((a) => a.url === asset.url);
+  if (existing) return existing;
+
+  const newItem: PresentationAssetItem = {
+    id: `asset-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+    url: asset.url,
+    name: asset.name || "Uploaded Image",
+    source: asset.source || "upload",
+    createdAt: new Date().toISOString(),
+  };
+
+  const updated = [newItem, ...list];
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem(ASSETS_STORAGE_KEY, JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent("myaipro_presentation_assets_updated", { detail: updated }));
+    } catch {
+      // ignore
+    }
+  }
+  return newItem;
+}
+
+export function setPendingForwardedImage(url: string, source?: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const payload = JSON.stringify({ url, source: source || "forward", timestamp: Date.now() });
+    localStorage.setItem(FORWARD_IMAGE_STORAGE_KEY, payload);
+    window.dispatchEvent(new CustomEvent("myaipro_forwarded_image_ready", { detail: { url, source } }));
+  } catch {
+    // ignore
+  }
+}
+
+export function getPendingForwardedImage(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(FORWARD_IMAGE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.url || null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingForwardedImage(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(FORWARD_IMAGE_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
 
 export function getCurrentUserEmail(): string {
   const session = getActiveUserSession();

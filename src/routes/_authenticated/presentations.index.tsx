@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo } from "react";
 import {
   listPresentations,
   generatePresentation,
+  generatePresentationOutline,
   deletePresentation,
 } from "@/lib/presentations.functions";
 import {
@@ -27,6 +28,7 @@ import {
   Folder,
   Layers,
   ChevronRight,
+  ChevronDown,
   Film,
   Download,
   ExternalLink,
@@ -69,18 +71,29 @@ function PresentationsIndexPage() {
   const qc = useQueryClient();
   const listFn = useServerFn(listPresentations);
   const genFn = useServerFn(generatePresentation);
+  const outlineFn = useServerFn(generatePresentationOutline);
   const delFn = useServerFn(deletePresentation);
 
   const [activeTab, setActiveTab] = useState<TabType>("created");
   const [topic, setTopic] = useState("");
-  const [count, setCount] = useState(8);
-  const [selectedStyle, setSelectedStyle] = useState<"standard" | "ghibli" | "tech" | "minimal">("standard");
+  const [count, setCount] = useState<number>(5);
+  const [selectedStyle, setSelectedStyle] = useState<string>("photorealistic");
+  const [autoGenerateImages, setAutoGenerateImages] = useState<boolean>(true);
   const [generating, setGenerating] = useState(false);
   const [genProgress, setGenProgress] = useState(0);
   const [genStage, setGenStage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [decks, setDecks] = useState<PresentationDeckItem[]>(() => loadAllPresentations());
   const [activeShareDeck, setActiveShareDeck] = useState<PresentationDeckItem | null>(null);
+
+  // Canva / Gemini Outline Confirmation Flow matching user screenshot
+  const [outline, setOutline] = useState<{
+    userPrompt: string;
+    title: string;
+    slides: Array<{ title: string; bullets: string[]; layout?: string }>;
+  } | null>(null);
+  const [expandedOutlineIdx, setExpandedOutlineIdx] = useState<number | null>(null);
+  const [isGeneratingOutline, setIsGeneratingOutline] = useState(false);
 
   const currentEmail = useMemo(() => getCurrentUserEmail(), []);
 
@@ -127,10 +140,41 @@ function PresentationsIndexPage() {
     }
   }, [serverDecks, currentEmail]);
 
-  // Generation mutation
+  // Outline Generation Handler
+  async function handleRequestOutline() {
+    if (!topic.trim()) {
+      toast.error("Please enter a presentation topic or idea");
+      return;
+    }
+    setIsGeneratingOutline(true);
+    try {
+      const res = await outlineFn({
+        data: {
+          topic: topic.trim(),
+          slideCount: count,
+        },
+      });
+      if (res && res.slides) {
+        setOutline({
+          userPrompt: topic.trim(),
+          title: res.title || topic.trim(),
+          slides: res.slides,
+        });
+        setExpandedOutlineIdx(0);
+        toast.success("Presentation outline generated! Confirm to create slides.");
+      }
+    } catch {
+      toast.error("Could not generate outline. Please try again.");
+    } finally {
+      setIsGeneratingOutline(false);
+    }
+  }
+
+  // Generation mutation: accepts confirmed outline slides
   const genMut = useMutation({
-    mutationFn: async () => {
-      if (!topic.trim()) {
+    mutationFn: async (customOutlineSlides?: Array<{ title: string; bullets: string[]; layout?: string }>) => {
+      const activeTopic = outline?.userPrompt || topic;
+      if (!activeTopic.trim()) {
         toast.error("Please enter a presentation topic or idea");
         return;
       }
@@ -139,18 +183,18 @@ function PresentationsIndexPage() {
       setGenStage("Researching key themes & structuring narrative...");
 
       const startTime = Date.now();
-      const targetDuration = 14000;
+      const targetDuration = 10000;
 
       const timer = setInterval(() => {
         const elapsed = Date.now() - startTime;
         const pct = Math.min(95, Math.floor((elapsed / targetDuration) * 95));
         setGenProgress(pct);
 
-        if (elapsed < 4000) {
+        if (elapsed < 3000) {
           setGenStage("Structuring slide flow & executive narrative (1/4)...");
-        } else if (elapsed < 8000) {
+        } else if (elapsed < 6000) {
           setGenStage("Writing concise bullet points & data points (2/4)...");
-        } else if (elapsed < 12000) {
+        } else if (elapsed < 9000) {
           setGenStage(
             selectedStyle === "ghibli"
               ? "Generating Studio Ghibli art style aesthetics (3/4)..."
@@ -159,20 +203,22 @@ function PresentationsIndexPage() {
         } else {
           setGenStage("Finalizing slides for Canva-style editing (4/4)...");
         }
-      }, 400);
+      }, 350);
 
       try {
-        const isGhibli = selectedStyle === "ghibli" || /ghibli|anime|watercolor/i.test(topic);
+        const isGhibli = selectedStyle === "ghibli" || /ghibli|anime|watercolor/i.test(activeTopic);
+        const slidesToUse = customOutlineSlides || outline?.slides;
         const [res] = await Promise.all([
           genFn({
             data: {
-              topic: topic.trim(),
-              slideCount: count,
-              style: isGhibli ? "ghibli" : undefined,
-              includeImages: true,
+              topic: activeTopic.trim(),
+              slideCount: slidesToUse?.length || 5,
+              style: isGhibli ? "ghibli" : selectedStyle,
+              includeImages: autoGenerateImages,
+              outlineSlides: slidesToUse,
             },
           }),
-          new Promise((r) => setTimeout(r, 6000)),
+          new Promise((r) => setTimeout(r, 4500)),
         ]);
         clearInterval(timer);
         setGenProgress(100);
@@ -192,8 +238,8 @@ function PresentationsIndexPage() {
 
       const newDeck: PresentationDeckItem = {
         id: d.id,
-        title: d.title ?? topic,
-        topic: topic.trim(),
+        title: d.title ?? (outline?.title || topic),
+        topic: (outline?.userPrompt || topic).trim(),
         ownerEmail: currentEmail,
         sharedWith: [],
         slides: d.slides ?? [],
@@ -206,6 +252,7 @@ function PresentationsIndexPage() {
       setDecks(updatedList);
       saveAllPresentations(updatedList);
       setTopic("");
+      setOutline(null);
       navigate({ to: `/presentations/${d.id}` });
     },
     onError: (err: any) => {
@@ -361,7 +408,7 @@ function PresentationsIndexPage() {
             {/* Number of Slides */}
             <div className="flex items-center gap-1.5 text-xs text-blue-200">
               <span className="font-medium text-blue-300/70 mr-1">Slides:</span>
-              {[4, 6, 8, 10, 12].map((n) => (
+              {[4, 5, 6, 8, 10].map((n) => (
                 <button
                   key={n}
                   type="button"
@@ -403,25 +450,37 @@ function PresentationsIndexPage() {
               ))}
             </div>
 
-            {/* Generate Action Button */}
-            <button
-              type="button"
-              disabled={!topic.trim() || generating}
-              onClick={() => genMut.mutate()}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-500/30 hover:brightness-110 active:scale-95 disabled:opacity-40 transition cursor-pointer ml-auto w-full sm:w-auto"
-            >
-              {generating ? (
-                <>
-                  <Loader2 className="size-4 animate-spin text-white" />
-                  <span>Generating Deck...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="size-4" />
-                  <span>Generate Presentation</span>
-                </>
-              )}
-            </button>
+            {/* Generate Outline Action Button matching Canva/Gemini flow */}
+            <div className="flex items-center gap-2 ml-auto w-full sm:w-auto">
+              <button
+                type="button"
+                disabled={!topic.trim() || isGeneratingOutline || generating}
+                onClick={handleRequestOutline}
+                className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-500/30 hover:brightness-110 active:scale-95 disabled:opacity-40 transition cursor-pointer w-full sm:w-auto"
+              >
+                {isGeneratingOutline ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin text-white" />
+                    <span>Planning Outline...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="size-4" />
+                    <span>Generate Outline</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                disabled={!topic.trim() || generating}
+                onClick={() => genMut.mutate()}
+                title="Directly generate slides without reviewing outline"
+                className="hidden sm:inline-flex items-center justify-center rounded-2xl border border-blue-500/30 bg-[#070e20] px-3.5 py-2.5 text-xs font-semibold text-blue-200 hover:text-white hover:bg-blue-600/20 transition cursor-pointer"
+              >
+                Instant
+              </button>
+            </div>
           </div>
 
           {/* Progress Indicator */}
@@ -443,6 +502,262 @@ function PresentationsIndexPage() {
             </div>
           )}
         </div>
+
+        {/* ==================================================================================== */}
+        {/* CANVA & GOOGLE GEMINI PRESENTATION OUTLINE CONFIRMATION CARD (Matches User Screenshot) */}
+        {/* ==================================================================================== */}
+        {outline && (
+          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-3 duration-300">
+            {/* User prompt chat bubble on top right matching Canva UI */}
+            <div className="flex justify-end">
+              <div className="max-w-md rounded-3xl bg-gradient-to-br from-cyan-900/60 via-blue-900/60 to-purple-900/60 border border-cyan-400/30 p-4 text-xs sm:text-sm text-white shadow-xl leading-relaxed">
+                <p className="font-medium">{outline.userPrompt}</p>
+              </div>
+            </div>
+
+            {/* Presentation Outline Card Container matching user's Canva screenshot */}
+            <div className="rounded-[32px] border border-blue-400/30 bg-white/95 dark:bg-[#0c1938] text-zinc-900 dark:text-white p-5 sm:p-7 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-base sm:text-lg tracking-tight text-zinc-900 dark:text-white">
+                    Presentation outline
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-blue-300/70 mt-0.5">
+                    Topic: <span className="font-semibold">{outline.title}</span> ({outline.slides.length} slides)
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setOutline(null)}
+                  className="size-7 flex items-center justify-center rounded-full bg-zinc-100 dark:bg-blue-950/70 text-zinc-400 hover:text-zinc-700 dark:hover:text-white"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </div>
+
+              {/* Accordion Slide List matching Canva layout in screenshot */}
+              <div className="space-y-2.5">
+                {outline.slides.map((s, idx) => {
+                  const isExpanded = expandedOutlineIdx === idx;
+                  return (
+                    <div
+                      key={idx}
+                      className="rounded-2xl border border-zinc-200 dark:border-blue-500/25 bg-zinc-50 dark:bg-[#081226] overflow-hidden transition"
+                    >
+                      {/* Accordion Header Capsule */}
+                      <button
+                        type="button"
+                        onClick={() => setExpandedOutlineIdx(isExpanded ? null : idx)}
+                        className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100 dark:hover:bg-blue-900/20 transition cursor-pointer"
+                      >
+                        <span className="text-sm font-semibold text-zinc-900 dark:text-white truncate pr-2">
+                          {s.title}
+                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-blue-950 text-zinc-600 dark:text-blue-300">
+                            Slide {idx + 1}
+                          </span>
+                          <ChevronDown
+                            className={cn(
+                              "size-4 text-zinc-400 transition-transform duration-200",
+                              isExpanded && "rotate-180",
+                            )}
+                          />
+                        </div>
+                      </button>
+
+                      {/* Expanded Accordion Body */}
+                      {isExpanded && (
+                        <div className="px-4 pb-4 pt-1 space-y-3 border-t border-zinc-200/80 dark:border-blue-500/20 bg-white dark:bg-[#070e20]/60">
+                          <div>
+                            <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-blue-300/70 block mb-1">
+                              Slide Title:
+                            </label>
+                            <input
+                              type="text"
+                              value={s.title}
+                              onChange={(e) => {
+                                const next = [...outline.slides];
+                                next[idx] = { ...next[idx], title: e.target.value };
+                                setOutline({ ...outline, slides: next });
+                              }}
+                              className="w-full rounded-xl border border-zinc-300 dark:border-blue-500/30 bg-zinc-50 dark:bg-[#0c1938] px-3 py-1.5 text-xs text-zinc-900 dark:text-white outline-none focus:border-blue-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-blue-300/70 block mb-1">
+                              Bullet Points / Core Insights:
+                            </label>
+                            <div className="space-y-1.5">
+                              {s.bullets.map((b, bIdx) => (
+                                <div key={bIdx} className="flex items-center gap-1.5">
+                                  <span className="text-zinc-400 dark:text-blue-400 text-xs">•</span>
+                                  <input
+                                    type="text"
+                                    value={b}
+                                    onChange={(e) => {
+                                      const next = [...outline.slides];
+                                      const newBullets = [...next[idx].bullets];
+                                      newBullets[bIdx] = e.target.value;
+                                      next[idx] = { ...next[idx], bullets: newBullets };
+                                      setOutline({ ...outline, slides: next });
+                                    }}
+                                    className="flex-1 rounded-lg border border-zinc-200 dark:border-blue-500/20 bg-transparent px-2.5 py-1 text-xs text-zinc-800 dark:text-blue-100 outline-none focus:border-blue-400"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const next = [...outline.slides];
+                                      next[idx] = {
+                                        ...next[idx],
+                                        bullets: next[idx].bullets.filter((_, i) => i !== bIdx),
+                                      };
+                                      setOutline({ ...outline, slides: next });
+                                    }}
+                                    className="text-zinc-400 hover:text-red-500 p-1"
+                                  >
+                                    <X className="size-3" />
+                                  </button>
+                                </div>
+                              ))}
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const next = [...outline.slides];
+                                  next[idx] = {
+                                    ...next[idx],
+                                    bullets: [...next[idx].bullets, "Key milestone or strategic point"],
+                                  };
+                                  setOutline({ ...outline, slides: next });
+                                }}
+                                className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-cyan-400 pt-1 hover:underline cursor-pointer"
+                              >
+                                <Plus className="size-3" /> Add bullet point
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex justify-end pt-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (outline.slides.length <= 1) {
+                                  toast.error("Outline must have at least one slide");
+                                  return;
+                                }
+                                const next = outline.slides.filter((_, i) => i !== idx);
+                                setOutline({ ...outline, slides: next });
+                              }}
+                              className="flex items-center gap-1 text-[11px] text-red-500 hover:text-red-600 font-semibold cursor-pointer"
+                            >
+                              <Trash2 className="size-3" /> Delete slide
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Add Slide to Outline */}
+              <button
+                type="button"
+                onClick={() => {
+                  const next = [
+                    ...outline.slides,
+                    {
+                      title: `New Slide ${outline.slides.length + 1}`,
+                      bullets: ["Key strategy point or execution finding"],
+                    },
+                  ];
+                  setOutline({ ...outline, slides: next });
+                  setExpandedOutlineIdx(next.length - 1);
+                }}
+                className="w-full flex items-center justify-center gap-1.5 rounded-2xl border border-dashed border-zinc-300 dark:border-blue-500/30 py-2.5 text-xs font-semibold text-zinc-600 dark:text-blue-300 hover:bg-zinc-50 dark:hover:bg-blue-950/40 transition cursor-pointer"
+              >
+                <Plus className="size-3.5" />
+                <span>Add another slide to outline</span>
+              </button>
+
+              {/* Open-Generative-AI Image Generation Options */}
+              <div className="rounded-2xl border border-zinc-200 dark:border-blue-500/25 bg-zinc-50/80 dark:bg-[#070e20]/80 p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="size-4 text-cyan-400" />
+                    <span className="text-xs font-bold text-zinc-900 dark:text-white">
+                      Open-Generative-AI Image Synthesis
+                    </span>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-cyan-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={autoGenerateImages}
+                      onChange={(e) => setAutoGenerateImages(e.target.checked)}
+                      className="size-3.5 accent-blue-600 rounded cursor-pointer"
+                    />
+                    <span>Generate AI slide visuals</span>
+                  </label>
+                </div>
+
+                {autoGenerateImages && (
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-blue-300/70 block mb-1.5">
+                      Visual Style Preset:
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { id: "photorealistic", label: "📸 Photorealistic" },
+                        { id: "cinematic", label: "🎬 Cinematic 35mm" },
+                        { id: "ghibli", label: "🎨 Studio Ghibli" },
+                        { id: "3d_render", label: "🧊 3D Render" },
+                        { id: "vector", label: "📐 Vector Flat Art" },
+                        { id: "minimalist", label: "💼 Minimalist Keynote" },
+                      ].map((st) => (
+                        <button
+                          key={st.id}
+                          type="button"
+                          onClick={() => setSelectedStyle(st.id)}
+                          className={cn(
+                            "rounded-xl px-2.5 py-1 text-xs font-semibold transition cursor-pointer",
+                            selectedStyle === st.id
+                              ? "bg-blue-600 text-white shadow-xs"
+                              : "bg-white dark:bg-[#0c1938] text-zinc-700 dark:text-blue-200 border border-zinc-200 dark:border-blue-500/20 hover:bg-zinc-100 dark:hover:bg-blue-900/30",
+                          )}
+                        >
+                          {st.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ✨ Generate Presentation Confirmation Button matching user screenshot */}
+              <button
+                type="button"
+                disabled={generating}
+                onClick={() => genMut.mutate(outline.slides)}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl border border-cyan-400/40 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:brightness-110 active:scale-[0.99] p-3.5 text-sm sm:text-base font-bold text-white shadow-xl shadow-blue-500/30 transition cursor-pointer"
+              >
+                {generating ? (
+                  <>
+                    <Loader2 className="size-5 animate-spin text-white" />
+                    <span>Synthesizing Presentation Visuals...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="size-5 text-cyan-300" />
+                    <span>✨ Generate presentation</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 3. TABS BELOW PROMPT INPUT: "Created by us" vs "Shared with us" */}
         <div className="space-y-4 pt-2">

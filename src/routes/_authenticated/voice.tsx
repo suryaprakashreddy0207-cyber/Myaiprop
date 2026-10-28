@@ -473,7 +473,9 @@ export function VoiceAssistantPage() {
                 (v.name.includes("Natural") ||
                   v.name.includes("Google US") ||
                   v.name.includes("Samantha") ||
-                  v.name.includes("Daniel")),
+                  v.name.includes("Daniel") ||
+                  v.name.includes("Jenny") ||
+                  v.name.includes("Guy")),
             ) || voices.find((v) => v.lang.startsWith("en"));
 
       const utterance = new SpeechSynthesisUtterance(clean);
@@ -483,7 +485,25 @@ export function VoiceAssistantPage() {
 
       setState("speaking");
 
+      // Keepalive interval for Chromium speech synthesis bug
+      let keepAliveTimer: any = null;
+      const startKeepAlive = () => {
+        keepAliveTimer = setInterval(() => {
+          if (window.speechSynthesis.speaking) {
+            window.speechSynthesis.pause();
+            window.speechSynthesis.resume();
+          } else {
+            clearInterval(keepAliveTimer);
+          }
+        }, 8000);
+      };
+
+      utterance.onstart = () => {
+        startKeepAlive();
+      };
+
       utterance.onend = () => {
+        if (keepAliveTimer) clearInterval(keepAliveTimer);
         if (!isSpeakingCancelledRef.current) {
           setState(isRecordingRef.current && !isMutedRef.current ? "listening" : "idle");
           if (isRecordingRef.current && !isMutedRef.current) {
@@ -493,6 +513,7 @@ export function VoiceAssistantPage() {
       };
 
       utterance.onerror = (e) => {
+        if (keepAliveTimer) clearInterval(keepAliveTimer);
         if (e.error !== "canceled") {
           setState(isRecordingRef.current && !isMutedRef.current ? "listening" : "idle");
           if (isRecordingRef.current && !isMutedRef.current) {
@@ -501,7 +522,24 @@ export function VoiceAssistantPage() {
         }
       };
 
-      window.speechSynthesis.speak(utterance);
+      // Ensure speech synthesis is resumed from browser power-save/autoplay lock
+      try {
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
+      } catch {
+        /* ignore */
+      }
+
+      // Small 40ms delay allows cancel() to settle in Chromium before queueing the new utterance
+      setTimeout(() => {
+        try {
+          window.speechSynthesis.resume();
+          window.speechSynthesis.speak(utterance);
+        } catch {
+          setState(isRecordingRef.current && !isMutedRef.current ? "listening" : "idle");
+        }
+      }, 40);
     },
     [ttsEnabled, voiceRate, selectedVoice, stopSpeaking],
   );
@@ -633,9 +671,9 @@ export function VoiceAssistantPage() {
 
         setMessages((prev) => [...prev, botMsg]);
 
-        // Speak aloud with TTS
+        // Speak aloud with TTS: voice assistant speaks aloud the voice reply while displaying the text in chat
         if (ttsEnabled) {
-          speakText(reply);
+          speakText(res?.speechText || reply);
         } else {
           setState(isRecordingRef.current && !isMutedRef.current ? "listening" : "idle");
         }
