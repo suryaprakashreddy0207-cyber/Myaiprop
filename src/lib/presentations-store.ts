@@ -55,16 +55,28 @@ export function loadAllPresentationAssets(): PresentationAssetItem[] {
   }
 }
 
-export function savePresentationAsset(asset: { url: string; name?: string; source?: string }): PresentationAssetItem {
+export function savePresentationAsset(asset: { url: string; name?: string; source?: string } | string): PresentationAssetItem {
+  const url = typeof asset === "string" ? asset : asset.url;
+  const name = typeof asset === "string" ? "Uploaded Image" : (asset.name || "Uploaded Image");
+  const source = typeof asset === "string" ? "upload" : (asset.source || "upload");
+  if (!url) {
+    return {
+      id: "asset-empty",
+      url: "",
+      name: "Empty",
+      source: "upload",
+      createdAt: new Date().toISOString(),
+    };
+  }
   const list = loadAllPresentationAssets();
-  const existing = list.find((a) => a.url === asset.url);
+  const existing = list.find((a) => a.url === url);
   if (existing) return existing;
 
   const newItem: PresentationAssetItem = {
     id: `asset-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-    url: asset.url,
-    name: asset.name || "Uploaded Image",
-    source: asset.source || "upload",
+    url,
+    name,
+    source,
     createdAt: new Date().toISOString(),
   };
 

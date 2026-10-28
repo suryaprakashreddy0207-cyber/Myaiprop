@@ -18,6 +18,11 @@ import {
   Sparkles,
   Send,
   MapPin,
+  Bot,
+  BotOff,
+  Users,
+  Check,
+  User,
 } from "lucide-react";
 import {
   GoogleDriveLogo,
@@ -30,6 +35,10 @@ import {
   getLocalProjectMessages,
   addProjectChatMessage,
   removeSourceFromProject,
+  getCurrentUserEmail,
+  getCurrentUserId,
+  getProjectAiEnabled,
+  setProjectAiEnabled,
   type ProjectItem,
   type ProjectSource,
   type ProjectChatMessage,
@@ -40,6 +49,7 @@ import { ShareProjectModal } from "@/components/projects/share-project-modal";
 import { ProjectSettingsModal } from "@/components/projects/project-settings-modal";
 import { RichMessage } from "@/components/rich-message";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/projects/$projectId")({
   component: ProjectDetailPage,
@@ -58,6 +68,15 @@ function ProjectDetailPage() {
   const [sending, setSending] = useState(false);
   const [listening, setListening] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [aiEnabled, setAiEnabled] = useState<boolean>(() => getProjectAiEnabled(projectId));
+
+  // Current user info
+  const currentUserEmail = useMemo(() => getCurrentUserEmail(), []);
+  const currentUserId = useMemo(() => getCurrentUserId(), []);
+  const currentUserName = useMemo(() => {
+    const clean = currentUserEmail.split("@")[0] || "User";
+    return clean.charAt(0).toUpperCase() + clean.slice(1);
+  }, [currentUserEmail]);
 
   // Modals
   const [addSourceOpen, setAddSourceOpen] = useState(false);
@@ -78,6 +97,35 @@ function ProjectDetailPage() {
       if (p) setProject(p);
     });
     setMessages(getLocalProjectMessages(projectId));
+    setAiEnabled(getProjectAiEnabled(projectId));
+  }, [projectId]);
+
+  // Real-time synchronization across tabs & team events
+  useEffect(() => {
+    function handleMsgsUpdated(e: any) {
+      if (!e.detail?.projectId || e.detail.projectId === projectId) {
+        setMessages(getLocalProjectMessages(projectId));
+      }
+    }
+    function handleAiToggled(e: any) {
+      if (!e.detail?.projectId || e.detail.projectId === projectId) {
+        setAiEnabled(e.detail.enabled);
+      }
+    }
+    function handleStorage() {
+      setMessages(getLocalProjectMessages(projectId));
+      setAiEnabled(getProjectAiEnabled(projectId));
+    }
+
+    window.addEventListener("myaipro_project_msgs_updated", handleMsgsUpdated);
+    window.addEventListener("myaipro_project_ai_toggled", handleAiToggled);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener("myaipro_project_msgs_updated", handleMsgsUpdated);
+      window.removeEventListener("myaipro_project_ai_toggled", handleAiToggled);
+      window.removeEventListener("storage", handleStorage);
+    };
   }, [projectId]);
 
   // Scroll on messages
@@ -128,22 +176,35 @@ function ProjectDetailPage() {
 
     setInput("");
 
+    const senderMeta = {
+      senderName: currentUserName,
+      senderEmail: currentUserEmail,
+      senderId: currentUserId,
+    };
+
     // Optimistically add user message immediately
     const userMsg: ProjectChatMessage = {
       id: `usr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       role: "user",
       content: text,
       created_at: new Date().toISOString(),
+      ...senderMeta,
     };
     setMessages((prev) => [...prev, userMsg]);
-    setSending(true);
 
     try {
-      addProjectChatMessage(projectId, "user", text).catch(() => {});
+      addProjectChatMessage(projectId, "user", text, senderMeta).catch(() => {});
     } catch {
       // non-blocking
     }
 
+    // CRITICAL: If AI is turned OFF, AI is completely NON-RESPONDING!
+    // The user and friends can chat without AI interrupting or generating unwanted text.
+    if (!aiEnabled) {
+      return;
+    }
+
+    setSending(true);
     let replyText = "";
 
     try {
@@ -168,9 +229,7 @@ function ProjectDetailPage() {
       // Resilient fallback to /api/chat with project context
       try {
         const guestId = localStorage.getItem("myaipro_guest_id") || "guest-user";
-        const promptWithProject = `[Project Context: "${project?.title || "Project"}"]\n${
-          sourcesContext ? `[Connected Sources:\n${sourcesContext}]\n` : ""
-        }${text}`;
+        const promptWithProject = `[Project Context: "${project?.title || "Project"}"]\n${text}`;
 
         const chatRes = await fetch("/api/chat", {
           method: "POST",
@@ -194,11 +253,13 @@ function ProjectDetailPage() {
     }
 
     if (!replyText) {
-      replyText = `I have received your request for project "${project?.title || "Project"}". How would you like to proceed?`;
+      replyText = `Regarding your message: I've noted this for project "${project?.title || "Project"}". How can I assist further?`;
     }
 
     try {
-      const botMsg = await addProjectChatMessage(projectId, "assistant", replyText);
+      const botMsg = await addProjectChatMessage(projectId, "assistant", replyText, {
+        senderName: "My AI Assistant",
+      });
       setMessages((prev) => {
         // Prevent duplicate assistant messages
         if (prev.some((m) => m.id === botMsg.id || (m.role === "assistant" && m.content === replyText))) {
@@ -213,6 +274,7 @@ function ProjectDetailPage() {
           id: `asst-${Date.now()}`,
           role: "assistant",
           content: replyText,
+          senderName: "My AI Assistant",
           created_at: new Date().toISOString(),
         },
       ]);
@@ -423,7 +485,42 @@ function ProjectDetailPage() {
 
           {/* Three dots dropdown menu */}
           {menuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-52 rounded-2xl border border-blue-500/30 bg-[#0c1938] p-1.5 shadow-2xl shadow-blue-950 z-50 animate-in fade-in zoom-in-95 duration-150">
+            <div className="absolute right-0 top-full mt-2 w-60 rounded-2xl border border-blue-500/30 bg-[#0c1938] p-1.5 shadow-2xl shadow-blue-950 z-50 animate-in fade-in zoom-in-95 duration-150">
+              {/* Turn off / on AI option */}
+              <button
+                onClick={() => {
+                  const nextState = !aiEnabled;
+                  setAiEnabled(nextState);
+                  setProjectAiEnabled(projectId, nextState);
+                  setMenuOpen(false);
+                  if (!nextState) {
+                    toast.success("AI is now turned OFF. You can chat with your team & friends!");
+                  } else {
+                    toast.success("AI Assistant turned ON. AI will respond to queries.");
+                  }
+                }}
+                className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-medium text-white hover:bg-blue-600/20 transition text-left cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  {aiEnabled ? (
+                    <BotOff className="size-4 text-amber-400" />
+                  ) : (
+                    <Bot className="size-4 text-emerald-400" />
+                  )}
+                  <span>{aiEnabled ? "Turn off AI (Team only)" : "Turn on AI Assistant"}</span>
+                </div>
+                <span
+                  className={cn(
+                    "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
+                    aiEnabled ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300",
+                  )}
+                >
+                  {aiEnabled ? "ON" : "OFF"}
+                </span>
+              </button>
+
+              <div className="my-1 border-t border-blue-500/20" />
+
               <button
                 onClick={() => {
                   setMenuOpen(false);
@@ -461,8 +558,8 @@ function ProjectDetailPage() {
         </div>
       </header>
 
-      {/* Subtabs: Chats vs Sources */}
-      <div className="relative z-10 flex items-center gap-2 px-4 pt-3 pb-2 border-b border-blue-500/20 bg-[#081226]/80 backdrop-blur-md">
+      {/* Subtabs: Chats vs Sources & AI Status */}
+      <div className="relative z-10 flex items-center justify-between px-4 pt-3 pb-2 border-b border-blue-500/20 bg-[#081226]/80 backdrop-blur-md">
         <div className="flex items-center gap-1.5 rounded-full bg-[#0c1938] border border-blue-500/25 p-1 shadow-sm">
           <button
             onClick={() => setActiveTab("chats")}
@@ -491,6 +588,39 @@ function ProjectDetailPage() {
             )}
           </button>
         </div>
+
+        {/* AI Status Pill & Quick Toggle */}
+        <button
+          onClick={() => {
+            const next = !aiEnabled;
+            setAiEnabled(next);
+            setProjectAiEnabled(projectId, next);
+            if (!next) {
+              toast.success("AI turned OFF. You are chatting with your team & friends!");
+            } else {
+              toast.success("AI assistant enabled.");
+            }
+          }}
+          className={cn(
+            "flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold border transition cursor-pointer",
+            aiEnabled
+              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20"
+              : "bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20",
+          )}
+          title={aiEnabled ? "Click to turn off AI" : "Click to turn on AI"}
+        >
+          {aiEnabled ? (
+            <>
+              <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>AI Active</span>
+            </>
+          ) : (
+            <>
+              <BotOff className="size-3 text-amber-400" />
+              <span>Team Chat (AI Off)</span>
+            </>
+          )}
+        </button>
       </div>
 
       {/* Main Tab Content */}
@@ -504,12 +634,41 @@ function ProjectDetailPage() {
                 <MessageSquare className="size-7" />
               </div>
               <h2 className="text-lg font-semibold text-white mb-1.5">No chats yet</h2>
-              <p className="text-xs text-blue-200/80">Start chatting below with project context</p>
+              <p className="text-xs text-blue-200/80">
+                {!aiEnabled
+                  ? "Chat with your team and friends. AI is currently turned off."
+                  : "Start chatting below with project context"}
+              </p>
             </div>
           ) : (
             /* Active Chat Feed */
             <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
               <div className="max-w-2xl mx-auto w-full space-y-4">
+                {/* Team Chat Mode Banner when AI is turned off */}
+                {!aiEnabled && (
+                  <div className="rounded-2xl bg-amber-500/10 border border-amber-500/30 p-3 flex items-center justify-between gap-3 text-xs text-amber-200 shadow-sm animate-in fade-in duration-150">
+                    <div className="flex items-center gap-2">
+                      <BotOff className="size-4 text-amber-400 shrink-0" />
+                      <div>
+                        <p className="font-semibold text-amber-300">Team Chat Mode Active</p>
+                        <p className="text-[11px] text-amber-200/80">
+                          AI is turned off. Whatever you chat here is shared with your team and friends without AI responding.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setAiEnabled(true);
+                        setProjectAiEnabled(projectId, true);
+                        toast.success("AI Assistant re-enabled");
+                      }}
+                      className="shrink-0 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 px-2.5 py-1 text-[11px] font-bold cursor-pointer transition"
+                    >
+                      Turn on AI
+                    </button>
+                  </div>
+                )}
+
                 {messages.map((m) => (
                   <div
                     key={m.id}
@@ -517,6 +676,34 @@ function ProjectDetailPage() {
                       m.role === "user" ? "items-end" : "items-start"
                     }`}
                   >
+                    {/* Sender identity & timestamp */}
+                    <div
+                      className={`flex items-center gap-1.5 mb-1 px-1 text-[11px] ${
+                        m.role === "user" ? "justify-end text-blue-200/70" : "text-cyan-300/80"
+                      }`}
+                    >
+                      {m.role === "assistant" ? (
+                        <>
+                          <Bot className="size-3 text-cyan-400" />
+                          <span className="font-semibold text-cyan-300">My AI</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="flex size-4 items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white uppercase shadow-xs">
+                            {(m.senderName || m.senderEmail || "U")[0]}
+                          </span>
+                          <span className="font-medium text-blue-200">
+                            {m.senderEmail && m.senderEmail.toLowerCase() === currentUserEmail.toLowerCase()
+                              ? "You"
+                              : m.senderName || (m.senderEmail ? m.senderEmail.split("@")[0] : "Team Member")}
+                          </span>
+                        </>
+                      )}
+                      <span className="text-[10px] text-blue-300/40">
+                        {new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+
                     <div
                       className={`max-w-[85%] rounded-3xl px-4 py-3 text-sm leading-relaxed ${
                         m.role === "user"
@@ -677,7 +864,9 @@ function ProjectDetailPage() {
             placeholder={
               activeTab === "sources"
                 ? "Ask about these sources…"
-                : "New chat"
+                : !aiEnabled
+                  ? "Chat with your team & friends (AI is turned off)..."
+                  : "Type a message or ask My AI with project context..."
             }
             className="flex-1 bg-transparent py-2 px-1 text-sm text-white placeholder:text-blue-300/40 outline-none"
           />

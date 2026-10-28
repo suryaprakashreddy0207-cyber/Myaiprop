@@ -271,14 +271,8 @@ function DeckPage() {
   const [bodySize, setBodySize] = useState(15);
   const [activeTool, setActiveTool] = useState<ToolType>(null);
   
-  // Open-Generative-AI Studio States
-  const [imgPrompt, setImgPrompt] = useState("");
-  const [imgStyle, setImgStyle] = useState<string>("photorealistic");
-  const [imgAspectRatio, setImgAspectRatio] = useState<"16:9" | "1:1" | "4:3">("16:9");
-  const [imgNegativePrompt, setImgNegativePrompt] = useState("");
-  const [imgEditPrompt, setImgEditPrompt] = useState("");
-  const [imgStudioTab, setImgStudioTab] = useState<"generate" | "edit" | "upload">("generate");
-  const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
+  // Image & Upload Studio States
+  const [imgStudioTab, setImgStudioTab] = useState<"upload" | "size">("upload");
   const [isDrawerDragOver, setIsDrawerDragOver] = useState(false);
 
   const [voiceOn, setVoiceOn] = useState(false);
@@ -347,13 +341,13 @@ function DeckPage() {
   }, [search.share, currentDeck, currentEmail]);
 
   useEffect(() => {
-    if (serverData) {
+    if (serverData && (!localTarget || !localTarget.slides || localTarget.slides.length === 0)) {
       setTitle(serverData.title || "Presentation Deck");
       if (serverData.slides && serverData.slides.length > 0) {
         setSlides(serverData.slides as Slide[]);
       }
     }
-  }, [serverData]);
+  }, [serverData, localTarget]);
 
   // Synchronize with local storage
   function syncToLocalStorage(newSlides: Slide[], newTitle: string) {
@@ -539,16 +533,27 @@ function DeckPage() {
     toast.success("Slide deleted");
   }
 
-  // Helper to place image directly onto current slide and save to studio library
-  function applyImageToSlide(dataUrl: string, notifyMsg = "Image placed on slide & saved to library!") {
-    updateCurrentSlide({
+  // Helper to place image directly onto current or specified slide and save to studio library
+  function applyImageToSlide(
+    dataUrl: string,
+    notifyMsg = "Image placed on slide & saved to library!",
+    targetIdx?: number,
+  ) {
+    const idx = typeof targetIdx === "number" ? targetIdx : currentIdx;
+    const target = slides[idx] || slide;
+    const patch = {
       image_url: dataUrl,
-      image_scale: slide.image_scale || 75,
-      image_size: slide.image_size || "medium",
-      image_align: slide.image_align || "center",
-      image_height: slide.image_height || 200,
-      image_fit: slide.image_fit || "cover",
-    });
+      image_scale: target.image_scale || 75,
+      image_size: target.image_size || "medium",
+      image_align: target.image_align || "center",
+      image_height: target.image_height || 200,
+      image_fit: target.image_fit || "cover",
+    };
+    const next = slides.map((sl, i) => (i === idx ? { ...sl, ...patch } : sl));
+    setSlides(next);
+    setCurrentIdx(idx);
+    setDirty(true);
+    syncToLocalStorage(next, title);
     savePresentationAsset(dataUrl);
     setUploadedAssets(loadAllPresentationAssets());
     toast.success(notifyMsg);
@@ -1205,19 +1210,19 @@ function DeckPage() {
                           </button>
                         ))}
 
-                        {/* Open-GenAI Edit Trigger */}
+                        {/* Size & Fit Drawer Trigger */}
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             setActiveTool("image");
-                            setImgStudioTab("edit");
+                            setImgStudioTab("size");
                           }}
                           className="flex items-center gap-1 rounded bg-gradient-to-r from-blue-600 to-indigo-600 px-1.5 py-0.5 text-[9px] font-bold text-white hover:brightness-110 transition cursor-pointer shadow-xs"
-                          title="Edit this image with Open-Generative-AI"
+                          title="Open sizing and position controls"
                         >
-                          <Wand2 className="size-2.5" />
-                          <span>AI Edit</span>
+                          <Sliders className="size-2.5" />
+                          <span>Size & Fit</span>
                         </button>
 
                         {/* Delete button */}
@@ -1296,14 +1301,6 @@ function DeckPage() {
                   className="flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/20 transition cursor-pointer"
                 >
                   <Trash2 className="size-3.5" /> Delete slide
-                </button>
-                <button
-                  onClick={() => illustrate.mutate()}
-                  disabled={illustrate.isPending}
-                  className="flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3.5 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 transition cursor-pointer ml-auto"
-                >
-                  <Sparkles className="size-3.5" />
-                  <span>{illustrate.isPending ? "Generating..." : "Auto-Illustrate All Slides"}</span>
                 </button>
               </div>
             )}
@@ -1402,14 +1399,12 @@ function DeckPage() {
               </div>
             )}
 
-            {/* Tool 3: Open-Generative-AI Image & Upload Studio */}
+            {/* Tool 3: Image Upload & Media Studio */}
             {activeTool === "image" && (
               <div className="space-y-4">
                 {/* Studio Sub-Tabs */}
                 <div className="flex flex-wrap items-center gap-1.5 border-b border-blue-500/20 pb-2">
                   {[
-                    { id: "generate", label: "🎨 Open-GenAI Generator", icon: Sparkles },
-                    { id: "edit", label: "🪄 AI Image Edit", icon: Wand2 },
                     { id: "upload", label: "📁 Upload & Dropzone", icon: Upload },
                     { id: "size", label: "📏 Size & Placement", icon: Sliders },
                   ].map((tab) => {
@@ -1432,195 +1427,6 @@ function DeckPage() {
                     );
                   })}
                 </div>
-
-                {/* TAB 1: Open-Generative-AI Generator */}
-                {imgStudioTab === "generate" && (
-                  <div className="space-y-3.5">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-semibold text-blue-200">
-                          AI Prompt (Open-Generative-AI Engine):
-                        </label>
-                        <button
-                          type="button"
-                          onClick={handleEnhancePrompt}
-                          disabled={isEnhancingPrompt}
-                          className="flex items-center gap-1 text-[11px] font-bold text-cyan-300 hover:text-white bg-cyan-500/10 border border-cyan-500/30 rounded-lg px-2 py-0.5 transition cursor-pointer disabled:opacity-50"
-                        >
-                          {isEnhancingPrompt ? (
-                            <Loader2 className="size-3 animate-spin" />
-                          ) : (
-                            <Sparkles className="size-3 text-cyan-400" />
-                          )}
-                          <span>✨ Enhance Prompt</span>
-                        </button>
-                      </div>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <textarea
-                          rows={2}
-                          value={imgPrompt}
-                          onChange={(e) => setImgPrompt(e.target.value)}
-                          placeholder="Describe visual concept (e.g. Autonomous delivery drone landing softly on urban rooftop, cinematic golden hour)..."
-                          className="flex-1 rounded-2xl border border-blue-500/30 bg-[#070e20] p-3 text-xs text-white placeholder:text-blue-300/40 outline-none focus:border-blue-400"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => genImg.mutate()}
-                          disabled={genImg.isPending}
-                          className="flex flex-col sm:flex-row items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-3 text-xs font-bold text-white shadow-lg hover:brightness-110 disabled:opacity-50 transition cursor-pointer shrink-0"
-                        >
-                          {genImg.isPending ? (
-                            <Loader2 className="size-4 animate-spin" />
-                          ) : (
-                            <Sparkles className="size-4" />
-                          )}
-                          <span>Generate & Insert</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Style Presets from Open-Generative-AI */}
-                    <div>
-                      <label className="text-[11px] font-bold uppercase tracking-wider text-blue-300/80 block mb-1.5">
-                        Visual Style:
-                      </label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {[
-                          { id: "photorealistic", label: "📸 Photorealistic" },
-                          { id: "cinematic", label: "🎬 Cinematic 35mm" },
-                          { id: "ghibli", label: "🎨 Studio Ghibli" },
-                          { id: "3d_render", label: "🧊 3D Octane Render" },
-                          { id: "vector", label: "📐 Vector Flat Art" },
-                          { id: "cyberpunk", label: "⚡ Cyberpunk Neon" },
-                          { id: "minimalist", label: "💼 Minimalist Keynote" },
-                          { id: "watercolor", label: "🖌️ Watercolor" },
-                        ].map((st) => (
-                          <button
-                            key={st.id}
-                            type="button"
-                            onClick={() => setImgStyle(st.id)}
-                            className={cn(
-                              "rounded-xl px-2.5 py-1 text-xs font-semibold transition cursor-pointer",
-                              imgStyle === st.id
-                                ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-xs"
-                                : "bg-[#0c1938] text-blue-300 hover:bg-blue-600/20 border border-blue-500/20",
-                            )}
-                          >
-                            {st.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Aspect Ratio & Negative Prompt */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                      <div>
-                        <label className="text-[11px] font-bold uppercase tracking-wider text-blue-300/80 block mb-1">
-                          Aspect Ratio:
-                        </label>
-                        <div className="flex items-center gap-1.5">
-                          {(["16:9", "1:1", "4:3"] as const).map((ar) => (
-                            <button
-                              key={ar}
-                              type="button"
-                              onClick={() => setImgAspectRatio(ar)}
-                              className={cn(
-                                "rounded-xl px-3 py-1 text-xs font-semibold transition cursor-pointer",
-                                imgAspectRatio === ar
-                                  ? "bg-blue-600 text-white"
-                                  : "bg-[#0c1938] text-blue-300 border border-blue-500/20",
-                              )}
-                            >
-                              {ar === "16:9" ? "16:9 (Slide)" : ar === "1:1" ? "1:1 (Square)" : "4:3"}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="text-[11px] font-bold uppercase tracking-wider text-blue-300/80 block mb-1">
-                          Negative Prompt (Optional):
-                        </label>
-                        <input
-                          type="text"
-                          value={imgNegativePrompt}
-                          onChange={(e) => setImgNegativePrompt(e.target.value)}
-                          placeholder="e.g. blurry, text, distorted, ugly..."
-                          className="w-full rounded-xl border border-blue-500/20 bg-[#070e20] px-3 py-1 text-xs text-white placeholder:text-blue-300/40 outline-none focus:border-blue-400"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* TAB 2: AI Image Edit & Refine */}
-                {imgStudioTab === "edit" && (
-                  <div className="space-y-3.5">
-                    {slide.image_url ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-3 bg-[#070e20] p-2.5 rounded-2xl border border-blue-500/20">
-                          <img
-                            src={slide.image_url}
-                            alt="Current Slide Image"
-                            className="size-16 rounded-xl object-cover shrink-0 border border-white/20"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-xs font-bold text-white truncate">
-                              Current Slide Image Target
-                            </h4>
-                            <p className="text-[11px] text-blue-300/70 mt-0.5">
-                              Describe modifications to generate a refined variation using AI.
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-semibold text-blue-200">
-                            Edit Instruction:
-                          </label>
-                          <div className="flex flex-col sm:flex-row gap-2">
-                            <input
-                              type="text"
-                              value={imgEditPrompt}
-                              onChange={(e) => setImgEditPrompt(e.target.value)}
-                              placeholder="e.g. Change background to dark navy cyberpunk grid, add dramatic rim light..."
-                              className="flex-1 rounded-2xl border border-blue-500/30 bg-[#070e20] px-3.5 py-2 text-xs text-white placeholder:text-blue-300/40 outline-none focus:border-blue-400"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => editImgMut.mutate(imgEditPrompt)}
-                              disabled={editImgMut.isPending || !imgEditPrompt.trim()}
-                              className="flex items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:brightness-110 disabled:opacity-50 transition cursor-pointer shrink-0"
-                            >
-                              {editImgMut.isPending ? (
-                                <Loader2 className="size-3.5 animate-spin" />
-                              ) : (
-                                <Wand2 className="size-3.5" />
-                              )}
-                              <span>Apply AI Edit</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="rounded-2xl border border-dashed border-blue-500/30 bg-[#0c1938]/40 p-6 text-center">
-                        <ImageIcon className="size-8 text-blue-400/50 mx-auto mb-2" />
-                        <p className="text-xs font-semibold text-white">No image on current slide</p>
-                        <p className="text-[11px] text-blue-300/70 mt-1">
-                          Generate or upload an image first to edit and create variations.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setImgStudioTab("generate")}
-                          className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-500 transition cursor-pointer"
-                        >
-                          <Sparkles className="size-3.5" />
-                          <span>Generate Image</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 {/* TAB 3: Upload & Drag-Drop Studio */}
                 {imgStudioTab === "upload" && (
@@ -2014,19 +1820,59 @@ function DeckPage() {
       <div className="shrink-0 border-t border-blue-500/20 bg-[#081226]/80 px-3 py-2">
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           {slides.map((s, idx) => (
-            <button
+            <div
               key={idx}
               onClick={() => setCurrentIdx(idx)}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onDrop={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (isViewOnly) return;
+                const assetUrl = e.dataTransfer.getData("text/plain");
+                if (assetUrl && (assetUrl.startsWith("data:image/") || assetUrl.startsWith("http"))) {
+                  applyImageToSlide(assetUrl, `Image placed onto Slide ${idx + 1}!`, idx);
+                  return;
+                }
+                const files = Array.from(e.dataTransfer.files);
+                const imgFile = files.find((f) => f.type.startsWith("image/"));
+                if (imgFile) {
+                  try {
+                    const compressed = await compressImageToDataUrl(imgFile, 1280, 0.85);
+                    applyImageToSlide(compressed.dataUrl, `Image uploaded onto Slide ${idx + 1}!`, idx);
+                  } catch {
+                    toast.error("Could not process image");
+                  }
+                }
+              }}
               className={cn(
-                "relative flex h-14 w-28 shrink-0 flex-col justify-between overflow-hidden rounded-2xl border p-2 text-left text-[10px] transition-all shadow-xs cursor-pointer",
+                "relative flex h-14 w-28 shrink-0 flex-col justify-between overflow-hidden rounded-2xl border p-2 text-left text-[10px] transition-all shadow-xs cursor-pointer group",
                 idx === currentIdx
                   ? "border-blue-400 ring-2 ring-blue-400/60 bg-[#0c1938] text-white shadow-md shadow-blue-950"
                   : "border-blue-500/25 bg-[#070e20] text-blue-300/70 hover:border-blue-400/60",
               )}
             >
-              <span className="line-clamp-1 font-bold">{s.title || `Slide ${idx + 1}`}</span>
-              <span className="self-end text-[9px] font-mono text-blue-400">{idx + 1}</span>
-            </button>
+              {s.image_url && (
+                <img
+                  src={s.image_url}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover opacity-20 group-hover:opacity-35 transition pointer-events-none"
+                />
+              )}
+              <span className="relative z-10 line-clamp-1 font-bold">{s.title || `Slide ${idx + 1}`}</span>
+              <div className="relative z-10 flex items-center justify-between w-full">
+                {s.image_url ? (
+                  <span className="text-[8px] bg-cyan-500/30 text-cyan-200 px-1 py-0.2 rounded font-mono font-bold">
+                    IMG
+                  </span>
+                ) : (
+                  <span />
+                )}
+                <span className="text-[9px] font-mono text-blue-400 font-bold">{idx + 1}</span>
+              </div>
+            </div>
           ))}
 
           {!isViewOnly && (

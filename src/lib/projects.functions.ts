@@ -48,19 +48,25 @@ You provide clear, accurate, insightful analysis, code writing, and direct answe
       systemPrompt += `\nAlways use and reference these connected sources when relevant to answer the user's questions accurately.`;
     }
 
-    // Check if query needs live search grounding
-    const isFinancial = /\b(rupee|inr|dollar|usd|rate|price|value|stock|crypto|bitcoin|currency|exchange)\b/i.test(userMessage);
-    const [liveSearch, liveFinancials] = await Promise.all([
-      fetchLiveWebGrounding(userMessage).catch(() => null),
-      isFinancial ? fetchLiveFinancials(userMessage).catch(() => null) : Promise.resolve(null),
-    ]);
-
+    // Only invoke live web search if user explicitly asks for real-time news/prices/rates
+    const needsSearch = /\b(search|google|news|today|current price|stock|crypto|bitcoin|weather|exchange rate|live rate)\b/i.test(userMessage);
     let liveGrounding = "";
-    if (liveSearch) liveGrounding += `\n[REAL-TIME LIVE SEARCH GROUNDING]:\n${liveSearch}`;
-    if (liveFinancials) liveGrounding += `\n[REAL-TIME FINANCIAL & CURRENCY DATA]:\n${liveFinancials}`;
+    if (needsSearch) {
+      try {
+        const isFinancial = /\b(rupee|inr|dollar|usd|rate|price|value|stock|crypto|bitcoin)\b/i.test(userMessage);
+        const [liveSearch, liveFinancials] = await Promise.all([
+          fetchLiveWebGrounding(userMessage).catch(() => null),
+          isFinancial ? fetchLiveFinancials(userMessage).catch(() => null) : Promise.resolve(null),
+        ]);
+        if (liveSearch) liveGrounding += `\n[LIVE SEARCH RESULTS]:\n${liveSearch}`;
+        if (liveFinancials) liveGrounding += `\n[FINANCIAL DATA]:\n${liveFinancials}`;
+      } catch {
+        // non-blocking
+      }
+    }
 
     const effectiveUserPrompt = liveGrounding
-      ? `${userMessage}\n\n${liveGrounding}\n(Please use the above real-time data to answer accurately and freshly as My AI.)`
+      ? `${userMessage}\n\n${liveGrounding}\n(Answer the user accurately using the above live info.)`
       : userMessage;
 
     // Format chat history into strictly alternating multiturn contents
@@ -123,20 +129,14 @@ You provide clear, accurate, insightful analysis, code writing, and direct answe
 
     // 2. Fallback to askModel pool
     try {
-      const reply = await askModel("myai", systemPrompt, effectiveUserPrompt);
-      if (reply) return { reply };
+      const reply = await askModel("myai", systemPrompt, userMessage);
+      if (reply && reply.trim()) return { reply: reply.trim() };
     } catch {
       // ignore
     }
 
-    // 3. Resilient fallback with live info or project summary
+    // 3. Clean direct conversational fallback
     return {
-      reply: liveSearch || liveFinancials
-        ? `${liveSearch || ""}\n\n${liveFinancials || ""}`.trim()
-        : `I've analyzed your project "${projectTitle}". ${
-            sourcesContext
-              ? "Based on your connected sources, let me know how you'd like to proceed!"
-              : "Feel free to ask any question or connect Google Drive, Google Sheets, or Gmail in the Sources tab for deep context."
-          }`,
+      reply: `Regarding "${userMessage}": I've noted this for project "${projectTitle}". Let me know if you'd like me to draft steps, analyze data, or summarize our progress!`,
     };
   });

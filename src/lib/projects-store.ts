@@ -26,6 +26,10 @@ export interface ProjectChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
   created_at: string;
+  senderName?: string;
+  senderEmail?: string;
+  senderId?: string;
+  senderAvatar?: string;
 }
 
 export interface ProjectItem {
@@ -38,6 +42,7 @@ export interface ProjectItem {
   category?: "Homework" | "Investing" | "Writing" | "General";
   sharedWith: string[];
   isShared: boolean;
+  aiEnabled?: boolean;
   sources: ProjectSource[];
   createdAt: string;
   updatedAt: string;
@@ -377,19 +382,41 @@ export async function removeSourceFromProject(
 // Add message to project chat
 export async function addProjectChatMessage(
   projectId: string,
-  role: "user" | "assistant",
+  role: "user" | "assistant" | "system",
   content: string,
+  metadata?: {
+    senderName?: string;
+    senderEmail?: string;
+    senderId?: string;
+    senderAvatar?: string;
+  },
 ): Promise<ProjectChatMessage> {
   const newMsg: ProjectChatMessage = {
     id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     role,
     content,
     created_at: new Date().toISOString(),
+    senderName: metadata?.senderName,
+    senderEmail: metadata?.senderEmail,
+    senderId: metadata?.senderId,
+    senderAvatar: metadata?.senderAvatar,
   };
 
   const existing = getLocalProjectMessages(projectId);
   const updated = [...existing, newMsg];
   saveLocalProjectMessages(projectId, updated);
+
+  if (typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(
+        new CustomEvent("myaipro_project_msgs_updated", {
+          detail: { projectId, message: newMsg, messages: updated },
+        }),
+      );
+    } catch {
+      // ignore
+    }
+  }
 
   // Non-blocking firestore backup sync
   try {
@@ -400,4 +427,29 @@ export async function addProjectChatMessage(
   }
 
   return newMsg;
+}
+
+export function getProjectAiEnabled(projectId: string): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    const val = localStorage.getItem(`myaipro_proj_ai_enabled_${projectId}`);
+    if (val === null) return true; // enabled by default
+    return val === "true";
+  } catch {
+    return true;
+  }
+}
+
+export function setProjectAiEnabled(projectId: string, enabled: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(`myaipro_proj_ai_enabled_${projectId}`, String(enabled));
+    window.dispatchEvent(
+      new CustomEvent("myaipro_project_ai_toggled", {
+        detail: { projectId, enabled },
+      }),
+    );
+  } catch {
+    // ignore
+  }
 }

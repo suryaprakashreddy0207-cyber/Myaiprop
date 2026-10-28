@@ -50,7 +50,7 @@ export const Route = createFileRoute("/_authenticated/presentations/")({
       {
         name: "description",
         content:
-          "AI presentation and slide deck generator with Canva-style editing, real-time collaboration, and sharing.",
+          "AI presentation and slide deck generator with visual canvas editing, real-time collaboration, and sharing.",
       },
       { property: "og:title", content: "Presentation Maker — My AI Pro" },
       {
@@ -86,7 +86,7 @@ function PresentationsIndexPage() {
   const [decks, setDecks] = useState<PresentationDeckItem[]>(() => loadAllPresentations());
   const [activeShareDeck, setActiveShareDeck] = useState<PresentationDeckItem | null>(null);
 
-  // Canva / Gemini Outline Confirmation Flow matching user screenshot
+  // Executive Outline Confirmation Flow matching user screenshot
   const [outline, setOutline] = useState<{
     userPrompt: string;
     title: string;
